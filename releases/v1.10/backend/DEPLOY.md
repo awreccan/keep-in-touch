@@ -54,8 +54,6 @@ Get a once-a-day email listing who's due or overdue — across **all** your proj
 - Edit the code, then **Deploy → Manage deployments → ✏️ Edit → Version: New version → Deploy**. The URL stays the same.
 - If you added/changed reminder code, also re-run `installDailyReminder` once.
 
-> **v1.16 backend update (recommended):** paste the latest `Code.gs` and redeploy a new version. It (a) writes meeting history as dates even from newer app versions (defensive against the `[object Object]` corruption — the app also guards this client-side) and (b) adds `?action=projects` so a freshly-connected device can list the Sheet's existing project tabs. Existing data and the URL are unaffected.
-
 ## Security notes
 - The deployment URL is an unguessable secret. Anyone with it can read/write your Sheet → don't paste it in public places.
 - For more safety, set `SHARED_TOKEN`; the app appends it as `?token=` and the script rejects calls without it.
@@ -63,11 +61,9 @@ Get a once-a-day email listing who's due or overdue — across **all** your proj
 
 ## How the Sheet looks (each project tab)
 
-| id | name | cadenceDays | lastMet | history | remindDays | archived | rank | snoozedUntil | suggestDismissed |
-|----|------|-------------|---------|---------|-----------|----------|------|--------------|------------------|
-| p_a | Alex Rivera | 30 | 2026-06-01 | 2026-05-01, 2026-06-01 |  | FALSE | 0 |  |  |
-
-> Existing Sheets from before these columns were added keep working — the script appends `snoozedUntil` and `suggestDismissed` automatically on the next write. Blank cells mean "not snoozed" / "no suggestion dismissed".
+| id | name | cadenceDays | lastMet | history | remindDays | archived | rank |
+|----|------|-------------|---------|---------|-----------|----------|------|
+| p_a | Alex Rivera | 30 | 2026-06-01 | 2026-05-01, 2026-06-01 |  | FALSE | 0 |
 
 - Edit any cell directly in Sheets — the app picks it up on next load/sync.
 - **`history` is the source of truth** and append-only. Add dates; don't delete past ones.

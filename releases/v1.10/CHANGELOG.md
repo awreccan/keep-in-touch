@@ -2,39 +2,6 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
-## v1.16.0 — 2026-06-05
-### Fixed
-- **Critical: Google Sheet sync no longer corrupts data.** After per-meeting notes were added, saving to the Sheet wrote malformed values (meeting history showed up as `[object Object]`) and could damage existing projects. The app now writes clean date values to the Sheet, and any already-corrupted cells are safely ignored on load. **This works without redeploying your Apps Script** — though redeploying (latest `backend/Code.gs`) is recommended so cross-device project discovery and the date-safe write also run server-side.
-- **Connecting a Sheet on a new device now finds your existing lists.** Previously a fresh device stayed on "default" and didn't see projects already in the Sheet. It now reads the Sheet's tabs and lists them in the project switcher (requires the redeployed backend).
-
-### Added
-- **App version is shown** in the project bar (e.g. `v1.16.0`), so you can tell which version each device is running — handy when diagnosing sync issues.
-- **Paste-to-import.** Settings now has a paste box: paste exported JSON, *or* copy a block of cells straight from Google Sheets (tab- or comma-separated, with a header row) and import them. Imported people merge into the current project (matched by name, meeting dates combined) — a quick recovery path.
-
-## v1.15.0 — 2026-06-05
-### Changed
-- **Visual & UX refresh (research-driven).** A calmer, more considered look throughout: warmer neutral background, flatter surfaces with crisp hairline borders (no heavy shadows), a tighter type hierarchy, and gentle motion (cards ease in, modals/toasts settle in, a subtle "saved ✓" pulse) — all of which respect your "reduce motion" system setting.
-- **Status is clearer and more accessible.** Overdue / due-soon / on-track now read with a leading colored dot *and* a higher-contrast label (meets WCAG AA in both light and dark), so status no longer relies on color alone.
-- **Better on touch + keyboard.** Buttons and tap targets grow to a comfortable 44px on touch devices, and every control now shows a visible focus ring for keyboard navigation.
-- **New app icon.** Replaced the off-centre placeholder with a crisp, properly centered icon — a recurrence loop wrapping ascending ranked bars, reflecting what the app is: recurring keep-in-touch reminders with your own priority ranking. Installs cleanly on Android (maskable-safe) and iOS.
-
-## v1.14.0 — 2026-06-05
-### Added
-- **History timeline (P3-F8).** The History view now opens with a compact sparkline of your meetings over time — each dot is a meeting, the line between them is color-coded green/amber/red by whether you kept pace with the cadence, and a dashed trailing segment shows time since the last meeting. A one-line summary calls out your longest on-cadence streak and longest gap. Hover any dot for the exact date and days since the previous meeting.
-
-## v1.13.0 — 2026-06-05
-### Added
-- **Adaptive cadence suggestions (P3-F3).** When your actual meeting rhythm with someone drifts from the cadence you set, the card gently suggests the real one — e.g. "💡 You're meeting ~every 30d, but cadence is 7d." Tap "Use 30d" to apply it or "Dismiss" to keep yours (it won't nag again unless your rhythm changes). Only appears with enough history (4+ meetings) and a steady rhythm — never for erratic or near-matching cadences. Suggestion math uses the median gap, so one outlier won't skew it.
-
-## v1.12.0 — 2026-06-05
-### Added
-- **Snooze (P3-F7).** Temporarily hide someone until a date — handy when a person is on sabbatical, traveling, or you've agreed to reconnect later. Tap "Snooze…" on a card, pick 1 week / 1 month / 3 months or a specific date, optionally add a reason. Snoozed people drop out of your due/overdue list and the reminder email, show a 💤 badge in the "Show snoozed / archived" view, and **return to your active list automatically** when the date passes (or tap "Wake up" anytime).
-
-## v1.11.0 — 2026-06-05
-### Added
-- **Per-meeting notes (F2).** Each logged meeting can carry an optional note (e.g. "coffee, talked about the new role"). Add one when you log a meeting, or tap "+ note" / "Edit note" on any past entry in the History view. One-tap "✔ Met today" stays exactly as fast — notes are always optional. Notes are included in CSV export.
-- **Save status indicator.** A small "saving… → saved ✓" (and "save failed" if something goes wrong) now appears in the project bar after every change, so you always know your data made it — especially useful with the Google Sheet backend.
-
 ## v1.10.0 — 2026-06-05
 ### Fixed
 - **Connecting a Google Sheet no longer wipes data you already have.** Previously, loading a list (e.g. from a file) and then connecting a Sheet for the first time would overwrite your list with the empty Sheet. Now connecting **merges** — your existing people are kept and pushed *up* to the Sheet, and if the Sheet already has data the two are unioned (meeting histories combined, never dropped). First connect = your data is saved to the Sheet, exactly as expected.

@@ -13,18 +13,16 @@
  * Optionally set a SHARED_TOKEN below and the renderer must send it.
  *
  * Columns (row 1 = headers, edited freely by the human):
- *   id | name | cadenceDays | lastMet | history | remindDays | archived | rank | snoozedUntil | suggestDismissed
+ *   id | name | cadenceDays | lastMet | history | remindDays | archived | rank
  *   - lastMet: convenience YYYY-MM-DD (max of history); the script keeps it in sync
  *   - history: comma-separated YYYY-MM-DD dates (append-only; the source of truth)
  *   - remindDays: blank = inherit global
  *   - archived: TRUE/FALSE
  *   - rank: integer for "My ranking" mode (blank ok)
- *   - snoozedUntil: YYYY-MM-DD; person is hidden + excluded from reminders until this date (blank = not snoozed)
- *   - suggestDismissed: a cadence number the user rejected for the adaptive suggestion (blank = none)
  */
 
 var SHARED_TOKEN = ""; // optional; if set, renderer must send ?token=...
-var HEADERS = ["id", "name", "cadenceDays", "lastMet", "history", "remindDays", "archived", "rank", "snoozedUntil", "suggestDismissed"];
+var HEADERS = ["id", "name", "cadenceDays", "lastMet", "history", "remindDays", "archived", "rank"];
 
 function doGet(e) {
   return handle(e, "GET");
@@ -37,13 +35,6 @@ function handle(e, method) {
   try {
     if (SHARED_TOKEN && (!e.parameter || e.parameter.token !== SHARED_TOKEN)) {
       return json({ error: "unauthorized" });
-    }
-    // ?action=projects → list existing project tab names (so a fresh device can
-    // discover projects already in this Sheet). Handled BEFORE getOrCreateSheet
-    // so it never creates a stray tab.
-    if (e.parameter && e.parameter.action === "projects") {
-      var names = SpreadsheetApp.getActiveSpreadsheet().getSheets().map(function (s) { return s.getName(); });
-      return json({ projects: names });
     }
     var project = (e.parameter && e.parameter.project) || "default";
     var sheet = getOrCreateSheet(project);
@@ -92,10 +83,6 @@ function readState(sheet, project) {
       remindDays: row[5] === "" || row[5] === null ? null : parseInt(row[5], 10),
       archived: row[6] === true || String(row[6]).toUpperCase() === "TRUE"
     };
-    var snoozedUntil = String(row[8] || "").trim();
-    if (snoozedUntil) item.snoozedUntil = snoozedUntil;   // optional; absent if blank
-    var sd = row[9] === "" || row[9] === null || row[9] === undefined ? null : parseInt(row[9], 10);
-    if (sd != null && !isNaN(sd)) item.suggestDismissed = sd;   // cadence value the user rejected
     items[id] = item;
     var rank = row[7] === "" || row[7] === null ? null : parseInt(row[7], 10);
     if (rank !== null && !isNaN(rank)) ranked.push({ id: id, rank: rank });
@@ -112,20 +99,13 @@ function readState(sheet, project) {
   };
 }
 
-// Extract the YYYY-MM-DD date from a history entry (string OR {date,note} object).
-function histDateOf(entry) {
-  return (entry && typeof entry === "object") ? (entry.date || "") : (entry || "");
-}
-
 function writeState(sheet, state) {
   var items = state.items || {};
   var order = state.manualOrder || [];
   var rows = [HEADERS];
   Object.keys(items).forEach(function (id) {
     var it = items[id];
-    // history entries may be plain ISO strings (legacy) or {date,note} objects (v1.11+);
-    // the Sheet stores DATES only — extract them so a cell never becomes "[object Object]".
-    var history = (it.history || []).map(histDateOf).filter(String).sort();
+    var history = (it.history || []).slice().sort();
     var lastMet = history.length ? history[history.length - 1] : "";
     var rank = order.indexOf(id);
     rows.push([
@@ -136,9 +116,7 @@ function writeState(sheet, state) {
       history.join(", "),
       it.remindDays == null ? "" : it.remindDays,
       it.archived ? true : false,
-      rank === -1 ? "" : rank,
-      it.snoozedUntil || "",
-      it.suggestDismissed == null ? "" : it.suggestDismissed
+      rank === -1 ? "" : rank
     ]);
   });
   sheet.clearContents();
@@ -221,7 +199,6 @@ function collectDueForProject(state) {
   Object.keys(state.items).forEach(function (id) {
     var item = state.items[id];
     if (item.archived === true) return;
-    if (item.snoozedUntil && item.snoozedUntil >= todayStr) return;   // snoozed: skip until date passes
     var d = gasDaysUntilDue(item, todayStr);
     var eff = item.remindDays != null ? item.remindDays : global;
     if (isNaN(eff)) eff = global;   // garbage cell can't silently suppress a contact

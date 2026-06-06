@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Keep In Touch</title>
-<link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👋</text></svg>">
 <!-- PWA: installable on Android + macOS/iOS so it lives as an app icon, opens prompt-free.
      All PWA code no-ops on file:// (SW needs https or localhost). -->
 <link rel="manifest" href="manifest.webmanifest">
@@ -16,46 +16,34 @@
 <link rel="apple-touch-icon" href="assets/icon-192.png">
 <style>
   :root {
-    --bg: #f7f6f4;            /* warm-neutral, one step off cool-gray */
+    --bg: #f6f7f9;
     --surface: #ffffff;
-    --surface-2: #eef0ee;
-    --border: #e2e0db;
+    --surface-2: #eef1f5;
+    --border: #d9dee5;
     --text: #1b2330;
-    --text-dim: #6b7280;      /* true-neutral; 4.83 on white = AA */
+    --text-dim: #677488;
     --accent: #2f6df0;
     --accent-fg: #ffffff;
-    --overdue: #d1453c;       /* stripe / dot / banner-border / timeline hue */
-    --due-soon: #b9740f;
-    --on-track: #2a8f5a;
-    --overdue-text: #b3322a;  /* pill text only — AA on the tint */
-    --due-soon-text: #8a5207;
-    --on-track-text: #1a6e42;
-    --shadow: 0 1px 2px rgba(20,30,50,.04);          /* flattened, single layer */
-    --shadow-pop: 0 6px 20px rgba(20,30,50,.10);     /* floating elements only */
+    --overdue: #e0463f;
+    --due-soon: #c87b13;
+    --on-track: #1f9d57;
+    --shadow: 0 1px 2px rgba(20,30,50,.06), 0 4px 14px rgba(20,30,50,.05);
     --radius: 12px;
-    --radius-sm: 8px;
-    --radius-lg: 16px;
     --maxw: 640px;
-    --ease-out: cubic-bezier(.22, 1, .36, 1);
-    --dur: .18s;
   }
   html[data-theme="dark"] {
     --bg: #0f1419;
-    --surface: #1b222b;       /* +luminance for elevation */
-    --surface-2: #252f3a;
-    --border: #313d4a;
+    --surface: #1a2129;
+    --surface-2: #232c36;
+    --border: #2e3a47;
     --text: #e6edf3;
-    --text-dim: #939eaa;      /* 5.89 on surface = AA */
+    --text-dim: #8b97a3;
     --accent: #4a9eff;
     --accent-fg: #07101d;
-    --overdue: #ff7a72;
-    --due-soon: #f5b34a;
-    --on-track: #54d98a;
-    --overdue-text: #ff7a72;  /* dark pills pass 4.7-6.3:1 — reuse bright hue */
-    --due-soon-text: #f5b34a;
-    --on-track-text: #54d98a;
-    --shadow: 0 1px 2px rgba(0,0,0,.25);
-    --shadow-pop: 0 8px 26px rgba(0,0,0,.45);
+    --overdue: #ff6b6b;
+    --due-soon: #ffb74a;
+    --on-track: #4ade80;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.35);
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html { font-size: 100%; }
@@ -85,11 +73,10 @@
     width: 2.2rem; height: 2.2rem; display: grid; place-items: center;
     border: 1px solid var(--border); background: var(--surface); color: var(--text);
     border-radius: 50%; cursor: pointer; font-size: 1.05rem; line-height: 1;
-    transition: background var(--dur) var(--ease-out), transform .1s var(--ease-out);
+    transition: background .15s, transform .1s;
   }
   .icon-btn:hover { background: var(--surface-2); }
   .icon-btn:active { transform: scale(.92); }
-  @media (pointer: coarse) { .icon-btn { width: 2.75rem; height: 2.75rem; } }
 
   .project-bar {
     font-size: 0.875rem; color: var(--text-dim); margin-top: 0.6rem;
@@ -116,45 +103,31 @@
   .src-dot.local { background: var(--due-soon); }
   .link-btn { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.8125rem; padding: 0; }
 
-  /* Save-status indicator (saving / saved / failed) */
-  .save-status {
-    font-size: 0.75rem; font-weight: 600; padding: 0.05rem 0.5rem; border-radius: 999px;
-    opacity: 0; transform: translateY(2px); transition: opacity .2s, transform .2s; white-space: nowrap;
-  }
-  .save-status.show { opacity: 1; transform: translateY(0); }
-  .save-status.saving { color: var(--text-dim); background: var(--surface-2); }
-  .save-status.saved { color: var(--on-track); background: color-mix(in srgb, var(--on-track) 14%, transparent); }
-  .save-status.failed { color: var(--overdue); background: color-mix(in srgb, var(--overdue) 16%, transparent); }
-  .save-status.saved.pulse { animation: savedpulse .42s var(--ease-out); }
-  .app-version { margin-left: auto; font-size: 0.6875rem; color: var(--text-dim); opacity: 0.7; font-variant-numeric: tabular-nums; }
-  @keyframes savedpulse { 0% { transform: scale(.8); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
-
   .modes { display: flex; gap: 0.4rem; margin-top: 0.7rem; background: var(--surface-2); padding: 0.25rem; border-radius: 999px; }
   .mode-btn {
     flex: 1; padding: 0.5rem; border: none; background: transparent;
     color: var(--text-dim); border-radius: 999px; font-size: 0.875rem; cursor: pointer; font-weight: 600;
-    transition: background var(--dur) var(--ease-out), color var(--dur) var(--ease-out);
+    transition: background .15s, color .15s;
   }
-  .mode-btn.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-pop); }
-  @media (pointer: coarse) { .mode-btn { min-height: 44px; } }
+  .mode-btn.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
 
   .banner {
     margin: 0.7rem 1rem 0; padding: 0.6rem 0.85rem; border-radius: var(--radius);
     background: var(--surface-2); font-size: 0.875rem; color: var(--text-dim);
   }
-  .banner.alert { color: var(--due-soon-text); background: color-mix(in srgb, var(--due-soon) 12%, var(--surface)); border-left: 3px solid var(--due-soon); }
+  .banner.alert { color: var(--due-soon); background: color-mix(in srgb, var(--due-soon) 12%, var(--surface)); }
 
   main { padding: 0.9rem 1rem 5rem; }
 
   .toolbar { display: flex; gap: 0.5rem; margin-bottom: 0.9rem; flex-wrap: wrap; }
   button.btn {
     padding: 0.55rem 0.85rem; border: 1px solid var(--border); background: var(--surface);
-    color: var(--text); border-radius: var(--radius-sm); font-size: 0.875rem; cursor: pointer; font-weight: 600;
-    box-shadow: none; transition: background var(--dur) var(--ease-out), transform .1s var(--ease-out);
+    color: var(--text); border-radius: 10px; font-size: 0.875rem; cursor: pointer; font-weight: 600;
+    box-shadow: var(--shadow); transition: background .15s, transform .1s;
   }
   button.btn:hover { background: var(--surface-2); }
   button.btn:active { transform: scale(.97); }
-  button.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); box-shadow: var(--shadow); }
+  button.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
 
   ul.list { list-style: none; margin: 0; padding: 0; }
   /* Grid rank mode: widen the page and lay cards out in responsive columns */
@@ -174,80 +147,44 @@
   }
   .grid-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   li.card {
-    background: var(--surface); border: 1px solid var(--border); border-left-width: 3px;
+    background: var(--surface); border: 1px solid var(--border); border-left-width: 4px;
     border-radius: var(--radius); padding: 0.85rem; margin-bottom: 0.65rem;
     display: flex; align-items: flex-start; gap: 0.65rem; box-shadow: var(--shadow);
-    transition: transform var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out);
-    animation: cardIn .26s var(--ease-out) both;
+    transition: transform .1s, box-shadow .15s;
   }
-  /* Only the first screenful staggers in; the rest just appear (avoids a full re-fade on every re-render). */
-  li.card:nth-child(2) { animation-delay: 40ms; }
-  li.card:nth-child(3) { animation-delay: 80ms; }
-  li.card:nth-child(4) { animation-delay: 120ms; }
-  li.card:nth-child(5) { animation-delay: 160ms; }
-  li.card:nth-child(6) { animation-delay: 200ms; }
-  li.card:nth-child(n+7) { animation: none; }
-  @keyframes cardIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-  @media (hover: hover) {
-    li.card:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--border) 55%, var(--text-dim)); }
-  }
-  li.card.dragging { opacity: 0.6; transform: scale(1.02); box-shadow: var(--shadow-pop); }
+  li.card.dragging { opacity: 0.45; }
   li.card.drag-over { box-shadow: 0 -3px 0 var(--accent), var(--shadow); }
-  .card.overdue { border-left-color: var(--overdue); background: linear-gradient(90deg, color-mix(in srgb, var(--overdue) 5%, var(--surface)) 0%, var(--surface) 36%); }
-  .card.due-soon { border-left-color: var(--due-soon); background: linear-gradient(90deg, color-mix(in srgb, var(--due-soon) 4%, var(--surface)) 0%, var(--surface) 36%); }
-  .card.on-track { border-left-color: var(--on-track); background: linear-gradient(90deg, color-mix(in srgb, var(--on-track) 3%, var(--surface)) 0%, var(--surface) 36%); }
+  .card.overdue { border-left-color: var(--overdue); }
+  .card.due-soon { border-left-color: var(--due-soon); }
+  .card.on-track { border-left-color: var(--on-track); }
 
   .handle {
     cursor: grab; color: var(--text-dim); font-size: 1.3rem; line-height: 1;
-    padding: 0.35rem 0.3rem; touch-action: none; user-select: none; display: inline-grid; place-items: center;
+    padding: 0.1rem 0.2rem; touch-action: none; user-select: none;
   }
-  @media (pointer: coarse) { .handle { min-width: 44px; min-height: 44px; } }
-  @media (hover: hover) { .handle:hover { color: var(--text); } }
   .handle:active { cursor: grabbing; }
   .card-body { flex: 1; min-width: 0; }
-  .card-title { font-size: 1rem; font-weight: 650; letter-spacing: -0.01em; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+  .card-title { font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
   .pill {
-    display: inline-flex; align-items: center; gap: 0.32rem;
     font-size: 0.75rem; padding: 0.1rem 0.5rem; border-radius: 999px; font-weight: 700; white-space: nowrap;
   }
-  /* status carried by BOTH a leading dot and an AA-contrast text color (not hue alone) */
-  .pill.overdue { background: color-mix(in srgb, var(--overdue) 18%, transparent); color: var(--overdue-text); }
-  .pill.due-soon { background: color-mix(in srgb, var(--due-soon) 20%, transparent); color: var(--due-soon-text); }
-  .pill.on-track { background: color-mix(in srgb, var(--on-track) 16%, transparent); color: var(--on-track-text); }
-  .pill.snoozed { background: color-mix(in srgb, var(--text-dim) 18%, transparent); color: var(--text-dim); }
-  .pill.overdue::before, .pill.due-soon::before, .pill.on-track::before {
-    content: ""; width: 0.42rem; height: 0.42rem; border-radius: 50%; background: currentColor; flex: none;
-  }
-  /* snoozed pill already leads with a 💤 glyph — no extra dot */
-  .cadence-suggest {
-    font-size: 0.8125rem; color: var(--text-dim); margin-top: 0.45rem; padding: 0.45rem 0.6rem;
-    border-radius: var(--radius-sm); background: color-mix(in srgb, var(--accent) 9%, var(--surface));
-    border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--border));
-    display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.5rem;
-  }
-  .cadence-suggest .cs-actions { display: flex; gap: 0.4rem; margin-left: auto; }
-  .card-meta { font-size: 0.8125rem; color: var(--text-dim); margin-top: 0.3rem; line-height: 1.4; }
+  .pill.overdue { background: color-mix(in srgb, var(--overdue) 18%, transparent); color: var(--overdue); }
+  .pill.due-soon { background: color-mix(in srgb, var(--due-soon) 20%, transparent); color: var(--due-soon); }
+  .pill.on-track { background: color-mix(in srgb, var(--on-track) 16%, transparent); color: var(--on-track); }
+  .card-meta { font-size: 0.8125rem; color: var(--text-dim); margin-top: 0.25rem; }
   .card-actions { display: flex; gap: 0.4rem; margin-top: 0.6rem; flex-wrap: wrap; }
   .mini {
     font-size: 0.8125rem; padding: 0.3rem 0.6rem; border: 1px solid var(--border);
-    background: transparent; color: var(--text-dim); border-radius: var(--radius-sm); cursor: pointer; font-weight: 600;
-    transition: color var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out), background var(--dur) var(--ease-out);
+    background: transparent; color: var(--text-dim); border-radius: 8px; cursor: pointer; font-weight: 600;
   }
   .mini:hover { color: var(--text); border-color: var(--text-dim); }
-  .mini.accent { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); }
-  @media (pointer: coarse) { .mini { min-height: 44px; padding: 0.5rem 0.8rem; } }
+  .mini.accent { color: var(--accent); border-color: var(--accent); }
 
-  .empty {
-    text-align: center; color: var(--text-dim); padding: 3.5rem 1.5rem; font-size: 1rem; line-height: 1.5;
-    border: 1.5px dashed var(--border); border-radius: var(--radius-lg);
-    background: color-mix(in srgb, var(--surface) 60%, transparent); max-width: 30rem; margin: 1rem auto;
-  }
-  .empty b { color: var(--accent); }
+  .empty { text-align: center; color: var(--text-dim); padding: 3rem 1.25rem; font-size: 0.9375rem; }
 
   /* Archive undo toast + parked-card styling (F7) */
-  .toast { margin: 0.7rem 0 0; padding: 0.6rem 0.85rem; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--border); color: var(--text); font-size: 0.875rem; display: none; align-items: center; justify-content: space-between; gap: 0.5rem; box-shadow: var(--shadow-pop); }
-  .toast.show { display: flex; animation: toastIn .22s var(--ease-out); }
-  @keyframes toastIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .toast { margin: 0.7rem 0 0; padding: 0.6rem 0.85rem; border-radius: var(--radius); background: var(--surface-2); color: var(--text); font-size: 0.875rem; display: none; align-items: center; justify-content: space-between; gap: 0.5rem; }
+  .toast.show { display: flex; }
   .toast button { background: none; border: none; color: var(--accent); font-weight: 700; cursor: pointer; font-size: 0.875rem; font-family: inherit; }
   body.archived-view li.card { opacity: 0.92; }
 
@@ -288,7 +225,7 @@
     flex: 1; padding: 0.45rem; border: none; background: transparent; color: var(--text-dim);
     border-radius: 999px; font-size: 0.8125rem; cursor: pointer; font-weight: 600;
   }
-  .batch-sub button.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-pop); }
+  .batch-sub button.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
   .batch-hint { font-size: 0.8125rem; color: var(--text-dim); margin: 0 0 0.7rem; }
   .axis-label { font-size: 0.75rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; margin: 0.2rem 0 0.4rem; }
   .axis { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 1.1rem; }
@@ -303,28 +240,25 @@
   .pool { display: flex; flex-wrap: wrap; gap: 0.4rem; }
   .pool-item {
     display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.45rem 0.7rem;
-    border: 1px solid var(--border); border-radius: 999px; background: var(--surface); box-shadow: none;
+    border: 1px solid var(--border); border-radius: 999px; background: var(--surface); box-shadow: var(--shadow);
     cursor: grab; font-size: 0.875rem; font-weight: 600; touch-action: none; user-select: none;
   }
   .pool-item:active { cursor: grabbing; }
-  .pool-item.dragging { opacity: 0.6; transform: scale(1.03); box-shadow: var(--shadow-pop); }
+  .pool-item.dragging { opacity: 0.45; }
   .pool-item .val { font-size: 0.75rem; font-weight: 700; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); border-radius: 999px; padding: 0.05rem 0.45rem; }
   .pool-item.flash { animation: poolflash .6s ease; }
   @keyframes poolflash { 0% { background: color-mix(in srgb, var(--on-track) 35%, var(--surface)); } 100% { background: var(--surface); } }
 
   /* Modal */
   .modal-backdrop {
-    position: fixed; inset: 0; background: color-mix(in srgb, var(--bg) 45%, rgba(0,0,0,.55)); display: none;
+    position: fixed; inset: 0; background: rgba(10,15,25,.5); display: none;
     align-items: center; justify-content: center; z-index: 100; padding: 1rem;
-    backdrop-filter: blur(2px);
   }
   .modal-backdrop.open { display: flex; }
-  .modal-backdrop.open .modal { animation: modalIn .2s var(--ease-out); }
-  @keyframes modalIn { from { opacity: 0; transform: translateY(8px) scale(.99); } to { opacity: 1; transform: none; } }
   .modal {
-    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
     padding: 1.25rem; width: 100%; max-width: 27rem; max-height: 90vh; overflow-y: auto;
-    box-shadow: 0 16px 48px rgba(10,15,25,.30);
+    box-shadow: 0 20px 60px rgba(10,15,25,.35);
   }
   .modal h2 { margin: 0 0 0.9rem; font-size: 1.1rem; }
   label.fld { display: block; margin-bottom: 0.8rem; font-size: 0.8125rem; color: var(--text-dim); font-weight: 600; }
@@ -338,27 +272,8 @@
     display: flex; justify-content: space-between; align-items: center;
     padding: 0.4rem 0; border-bottom: 1px solid var(--border); font-size: 0.875rem;
   }
-  /* History timeline sparkline (P3-F8) */
-  .tl { margin: 0.2rem 0 0.9rem; }
-  .tl svg { display: block; width: 100%; height: auto; overflow: visible; }
-  .tl-base { stroke: var(--border); stroke-width: 0.6; }
-  .tl-seg { stroke-width: 1.6; stroke-linecap: round; vector-effect: non-scaling-stroke; }
-  .tl-seg.on-track { stroke: var(--on-track); }
-  .tl-seg.due-soon { stroke: var(--due-soon); }
-  .tl-seg.overdue  { stroke: var(--overdue); stroke-dasharray: 3 2; }
-  .tl-seg.open     { stroke: var(--text-dim); stroke-dasharray: 1 2; }
-  .tl-dot { fill: var(--surface); stroke: var(--on-track); stroke-width: 1.4; vector-effect: non-scaling-stroke; }
-  .tl-today { stroke: var(--text-dim); stroke-width: 1; }
-  .tl-summary { font-size: 0.75rem; color: var(--text-dim); margin-top: 0.35rem; line-height: 1.4; }
-  .tl-empty { font-size: 0.8125rem; color: var(--text-dim); }
-  .hist-list li .hist-row-actions { display: flex; gap: 0.35rem; flex: none; }
-  .hist-list li .hist-row-main { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; flex: 1; }
+  .hist-list li .hist-row-actions { display: flex; gap: 0.35rem; }
   .hist-edit-input { padding: 0.3rem 0.4rem; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 7px; font-size: 0.875rem; font-weight: 600; }
-  .hist-note { font-size: 0.8125rem; color: var(--text-dim); line-height: 1.35; white-space: pre-wrap; word-break: break-word; }
-  .hist-addnote { align-self: flex-start; font-size: 0.75rem; }
-  .hist-note-input { width: 100%; margin-top: 0.2rem; padding: 0.35rem 0.45rem; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 7px; font-size: 0.8125rem; font-family: inherit; resize: vertical; }
-  /* Add/Edit & history textareas inherit the field look */
-  label.fld textarea { width: 100%; margin-top: 0.3rem; padding: 0.6rem; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 9px; font-size: 1rem; font-family: inherit; resize: vertical; }
   .row2 { display: flex; gap: 0.5rem; }
   .row2 > * { flex: 1; }
   .hint { font-size: 0.75rem; color: var(--text-dim); margin: -0.4rem 0 0.8rem; line-height: 1.4; }
@@ -384,19 +299,6 @@
     background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 37%, var(--surface) 63%);
     background-size: 400% 100%; animation: shimmer 1.4s ease infinite; }
   @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
-
-  /* Keyboard focus ring (the base reset kills the mobile tap highlight; this restores a11y focus) */
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: inherit; }
-  :focus:not(:focus-visible) { outline: none; }
-
-  /* Respect reduced-motion: drop time-based motion, keep state styles (saved ✓, drag lift, status) visible. MUST be last. */
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
-      animation-duration: .001ms !important; animation-iteration-count: 1 !important;
-      transition-duration: .001ms !important; scroll-behavior: auto !important;
-    }
-    li.card { animation: none; }
-  }
 </style>
 </head>
 <body>
@@ -419,8 +321,6 @@
     Project: <button class="project-chip" id="projectChip" title="Switch or create a project">default ▾</button>
     <button class="link-btn" id="connectBtn">Connect file (desktop)</button>
     <span id="srcLabel"></span>
-    <span class="save-status" id="saveStatus" aria-live="polite"></span>
-    <span class="app-version" id="appVersion" title="App version"></span>
   </div>
   <div class="modes">
     <button class="mode-btn active" data-mode="auto">Auto · due / overdue</button>
@@ -435,7 +335,7 @@
 <main class="wrap">
   <div class="toolbar">
     <button class="btn primary" id="addBtn">+ Add person</button>
-    <button class="btn" id="toggleArchived">Show snoozed / archived</button>
+    <button class="btn" id="toggleArchived">Show archived</button>
     <button class="btn" id="exportBtn">Export JSON</button>
     <button class="btn" id="exportCsvBtn">Export CSV</button>
   </div>
@@ -510,45 +410,15 @@
 <div class="modal-backdrop" id="histModal">
   <div class="modal">
     <h2 id="histTitle">History</h2>
-    <div class="tl" id="histViz"></div>
     <div class="row2" style="align-items:flex-end">
       <label class="fld">Log a meeting on
         <input type="date" id="h_date">
       </label>
       <button class="btn primary" id="h_add" style="margin-bottom:0.8rem">Log it</button>
     </div>
-    <label class="fld">Note (optional)
-      <textarea id="h_note" rows="2" maxlength="280" autocomplete="off" autocapitalize="sentences" spellcheck="true" enterkeyhint="done" placeholder="e.g. coffee, talked about the new role"></textarea>
-    </label>
     <ul class="hist-list" id="histList"></ul>
     <div class="modal-actions">
       <button class="btn" id="histClose">Close</button>
-    </div>
-  </div>
-</div>
-
-<!-- Snooze modal (P3-F7): hide a person until a date, then auto-resurface -->
-<div class="modal-backdrop" id="snoozeModal">
-  <div class="modal">
-    <h2 id="snoozeTitle">Snooze</h2>
-    <div class="hint">Hide this person until a date. They drop out of due/overdue math and return automatically when the date passes. (Months ≈ 30 / 90 days.)</div>
-    <div class="row2">
-      <button class="btn" data-snooze="1w">1 week</button>
-      <button class="btn" data-snooze="1m">1 month</button>
-      <button class="btn" data-snooze="3m">3 months</button>
-    </div>
-    <label class="fld">Until a specific date
-      <input type="date" id="sz_date">
-    </label>
-    <label class="fld">Reason (optional)
-      <input type="text" id="sz_reason" placeholder="e.g. on sabbatical, new baby" autocomplete="off">
-    </label>
-    <div class="modal-actions" style="justify-content:space-between">
-      <button class="btn" id="sz_unsnooze">Unsnooze</button>
-      <span>
-        <button class="btn" id="snoozeCancel">Cancel</button>
-        <button class="btn primary" id="sz_apply">Snooze until date</button>
-      </span>
     </div>
   </div>
 </div>
@@ -574,16 +444,9 @@
       <button class="btn" id="s_sheet_disconnect">Disconnect</button>
     </div>
     <div class="hint">The Sheet is your editable database (open it, click a cell, autosaves). See backend/DEPLOY.md to set it up once. Changes here autosave back to the Sheet.</div>
-    <label class="fld">Import a file (JSON or CSV export)
-      <input type="file" id="s_import" accept="application/json,text/csv,.json,.csv,.tsv">
+    <label class="fld">Import data (paste exported JSON)
+      <input type="file" id="s_import" accept="application/json">
     </label>
-    <label class="fld">…or paste data (exported JSON, or rows copied from a spreadsheet)
-      <textarea id="s_paste" rows="3" placeholder="Paste JSON, or copy cells from Google Sheets and paste here (tab/comma separated, with a header row)" autocomplete="off"></textarea>
-    </label>
-    <div class="modal-actions" style="justify-content:flex-start;margin-bottom:0.6rem">
-      <button class="btn primary" id="s_paste_import">Import pasted data</button>
-    </div>
-    <div class="hint">Paste import merges into the current project (people are matched by name; meeting dates are unioned). Great for recovering from a spreadsheet copy.</div>
     <div class="hint" id="dataSourceInfo"></div>
     <div class="modal-actions">
       <button class="btn" id="settingsClose">Close</button>
@@ -642,10 +505,8 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.16.0";   // kept in sync with the VERSION file by release.sh
-
 /* =========================================================================
-   Keep In Touch — renderer (v1.16.0: P0 Sheet-save corruption fix + version badge + paste import)
+   Keep In Touch — renderer (v1.10.0: first-run onboarding + merge-on-connect (no data loss))
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -766,25 +627,13 @@ async function loadFromSheet(cfg) {
   source = "sheet";
 }
 let sheetSaveTimer = null;
-// The Sheet backend stores history as DATES in one cell. Flatten {date,note}
-// objects to date strings BEFORE POST so it's correct even against an
-// already-deployed older backend (notes aren't stored in the Sheet anyway).
-function sheetSafeState() {
-  const out = structuredClone(state);
-  for (const it of Object.values(out.items || {})) {
-    it.history = (it.history || []).map(h => (h && typeof h === "object") ? (h.date || "") : h).filter(Boolean);
-  }
-  return out;
-}
 function scheduleSheetSave(cfg) {
-  localStorage.setItem(LS_KEY, JSON.stringify(state));  // offline cache keeps full objects (notes)
-  setSaveStatus("saving");
+  localStorage.setItem(LS_KEY, JSON.stringify(state));  // offline cache / fallback
   if (sheetSaveTimer) clearTimeout(sheetSaveTimer);
   sheetSaveTimer = setTimeout(() => {
     // text/plain body avoids a CORS preflight Apps Script can't answer
-    fetch(sheetEndpoint(cfg), { method: "POST", body: JSON.stringify(sheetSafeState()) })
-      .then(res => { if (!res.ok) throw new Error("HTTP " + res.status); setSaveStatus("saved"); })
-      .catch(err => { console.error("sheet save failed (cached locally)", err); setSaveStatus("failed"); });
+    fetch(sheetEndpoint(cfg), { method: "POST", body: JSON.stringify(state) })
+      .catch(err => console.error("sheet save failed (cached locally)", err));
   }, 800);
 }
 
@@ -831,29 +680,9 @@ async function verifyPermission(handle, write) {
   return false;
 }
 
-// Canonicalize a history array to Array<{date, note?}>: tolerate bare strings,
-// mixed/legacy shapes, and hand-edited Sheet cells; dedupe by date (prefer a
-// non-empty note); sort ascending. Self-healing — no migration flag (F2).
-function normalizeHistory(arr) {
-  if (!Array.isArray(arr)) return [];
-  const byDate = new Map();
-  for (const el of arr) {
-    const date = typeof el === "string" ? el : (el && el.date);
-    if (!date || typeof date !== "string") continue;   // drop malformed
-    const note = (el && typeof el === "object" && el.note) ? String(el.note) : "";
-    const prev = byDate.get(date);
-    const keepNote = note || (prev && prev.note) || "";
-    byDate.set(date, keepNote ? { date, note: keepNote } : { date });
-  }
-  return [...byDate.values()].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
-}
-
 function mergeState(raw) {
   const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-  const merged = Object.assign(structuredClone(DEFAULT_STATE), parsed, { project: PROJECT });
-  // Single chokepoint for ALL ingest paths (sheet/file/local/import): normalize history.
-  for (const it of Object.values(merged.items || {})) it.history = normalizeHistory(it.history);
-  return merged;
+  return Object.assign(structuredClone(DEFAULT_STATE), parsed, { project: PROJECT });
 }
 
 /* Union two states without losing data — used when CONNECTING a Sheet so the
@@ -908,32 +737,11 @@ function loadFromLocal() {
   source = "local";
 }
 
-/* ---------- save-status indicator (INCOMING-6) ----------
-   Reflects the save lifecycle in the project bar: saving… → saved ✓ → (auto-hide),
-   or save failed. Covers all three backends. */
-let saveStatusTimer = null;
-function setSaveStatus(kind) {
-  const el = document.getElementById("saveStatus");
-  if (!el) return;
-  if (saveStatusTimer) { clearTimeout(saveStatusTimer); saveStatusTimer = null; }
-  el.className = "save-status";   // reset
-  if (kind === "saving") {
-    el.textContent = "saving…"; el.classList.add("show", "saving");
-  } else if (kind === "saved") {
-    el.textContent = "saved ✓"; el.classList.add("show", "saved", "pulse");
-    saveStatusTimer = setTimeout(() => el.classList.remove("show"), 1600);
-  } else if (kind === "failed") {
-    el.textContent = "save failed"; el.classList.add("show", "failed");
-    saveStatusTimer = setTimeout(() => el.classList.remove("show"), 4000);
-  }
-}
-
 async function save() {
   if (source === "sheet") {
     const cfg = getSheetCfg();
-    if (cfg) { scheduleSheetSave(cfg); return; }   // status driven inside scheduleSheetSave
+    if (cfg) { scheduleSheetSave(cfg); return; }
   }
-  setSaveStatus("saving");
   if (source === "file" && fileHandle) {
     try {
       // Lazily upgrade read→readwrite. save() is only ever called from a user
@@ -942,26 +750,18 @@ async function save() {
       localStorage.setItem(LS_KEY, JSON.stringify(state));
       if (!(await verifyPermission(fileHandle, true))) {
         console.warn("write permission denied; kept local mirror only");
-        setSaveStatus("failed");
         return;
       }
       const w = await fileHandle.createWritable();
       await w.write(JSON.stringify(state, null, 2));
       await w.close();
-      setSaveStatus("saved");
       return;
     } catch (e) {
       console.error("file write failed, falling back to local", e);
       source = "local"; updateProjectBar();
     }
   }
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify(state));
-    setSaveStatus("saved");
-  } catch (e) {
-    console.error("localStorage write failed", e);
-    setSaveStatus("failed");
-  }
+  localStorage.setItem(LS_KEY, JSON.stringify(state));
 }
 
 async function connectProjectFile() {
@@ -1052,7 +852,7 @@ async function switchProjectInPlace(name) {
   // reset the archived view (the in-place path keeps the module var; reload wouldn't)
   showArchived = false; hideToast(); document.body.classList.remove("archived-view");
   const tb = document.getElementById("toggleArchived");
-  tb.textContent = "Show snoozed / archived"; tb.classList.remove("primary");
+  tb.textContent = "Show archived"; tb.classList.remove("primary");
   // reflect the switch in the URL without navigating (keeps the gesture)
   const u = new URL(location.href);
   u.searchParams.set("project", PROJECT);
@@ -1061,7 +861,6 @@ async function switchProjectInPlace(name) {
   showLoader("Loading " + PROJECT + "…");
   try {
     await loadProjectData({ canPrompt: true });
-    if (clearExpiredSnoozes()) save();   // wake people whose snooze elapsed
     syncModeButtons();
     render(); updateProjectBar();
   } finally { hideLoader(); }
@@ -1129,23 +928,7 @@ async function connectSheet(url, token) {
   source = "sheet";
   setSheetCfg(cfg);
   await save();                                           // routes to scheduleSheetSave
-  await discoverSheetProjects(cfg);                       // so other devices see existing tabs
   render(); updateProjectBar();
-}
-// Ask the backend for the Sheet's tab names and register them locally, so a
-// fresh device discovers projects already in the Sheet. Silently no-ops on an
-// older backend that doesn't support ?action=projects.
-async function discoverSheetProjects(cfg) {
-  try {
-    const u = new URL(cfg.url);
-    u.searchParams.set("action", "projects");
-    if (cfg.token) u.searchParams.set("token", cfg.token);
-    const res = await fetch(u.toString(), { method: "GET" });
-    const data = await res.json();
-    if (Array.isArray(data.projects)) {
-      for (const name of data.projects) registerProject(normProject(name));
-    }
-  } catch (e) { /* old backend or offline — non-fatal */ }
 }
 async function onboardConnectSheet() {
   const url = document.getElementById("ob_sheet_url").value.trim();
@@ -1156,7 +939,6 @@ async function onboardConnectSheet() {
 }
 
 async function init() {
-  document.getElementById("appVersion").textContent = "v" + APP_VERSION;
   populateCadencePresets();   // fill the Add/Edit cadence select before the modal can open
   applyTheme(localStorage.getItem("keepInTouch.theme") || "light");
   registerProject(PROJECT);   // make the current project discoverable in the switcher
@@ -1170,7 +952,6 @@ async function init() {
   }
   try {
     await loadProjectData({ canPrompt: false });   // cold load: never prompt
-    if (clearExpiredSnoozes()) save();   // wake people whose snooze elapsed
     syncModeButtons();
     render(); updateProjectBar();
     if (hasExistingData()) { try { localStorage.setItem("keepInTouch.onboarded", "1"); } catch (e) {} }
@@ -1256,15 +1037,10 @@ function todayISO() { return new Date().toISOString().slice(0, 10); }
 function parseISO(s) { return s ? new Date(s + "T00:00:00") : null; }
 function daysBetween(a, b) { return Math.round((b - a) / MS_DAY); }
 
-// history entries are {date, note?} (normalized on ingest). lastMet returns the
-// latest date STRING so nextDue/daysUntilDue/statusOf stay unchanged.
-const byDateAsc = (a, b) => histDate(a) < histDate(b) ? -1 : histDate(a) > histDate(b) ? 1 : 0;
 function lastMet(item) {
   if (!item.history || !item.history.length) return null;
-  return item.history.slice().sort(byDateAsc).at(-1).date;
+  return item.history.slice().sort().at(-1);
 }
-function histDates(item) { return item.history.map(h => h.date); }
-function noteFor(item, date) { const e = item.history.find(h => h.date === date); return (e && e.note) || ""; }
 /* Human "time ago" for a YYYY-MM-DD date: today / yesterday / N days ago /
    N weeks ago / N months ago / N years ago. Returns "" for null. */
 function humanizeRelative(dateISO) {
@@ -1299,55 +1075,6 @@ function statusOf(item) {
   return { cls: "on-track", label: `In ${d}d`, order: d };
 }
 
-/* ---------- adaptive cadence suggestions (P3-F3) ---------- */
-function medianOf(nums) {
-  if (!nums.length) return null;
-  const s = nums.slice().sort((a, b) => a - b);   // numeric sort
-  const m = s.length >> 1;
-  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
-}
-const CADENCE_ANCHORS = [7, 14, 21, 30, 45, 60, 90, 180, 365];
-function roundCadence(raw) {
-  if (!isFinite(raw) || raw < 1) return 1;
-  let best = Math.round(raw), bestErr = Infinity;
-  for (const a of CADENCE_ANCHORS) {
-    const err = Math.abs(a - raw) / raw;
-    if (err <= 0.18 && err < bestErr) { best = a; bestErr = err; }
-  }
-  return Math.max(1, best);
-}
-// Suggest a cadence from the median gap between meetings, or null if not confident.
-function suggestCadence(item) {
-  const MIN_GAPS = 3, MAX_REL_MAD = 0.75, NEAR_EQ = 0.15;
-  const dates = histDates(item).slice().sort();   // ISO strings sort chronologically
-  if (dates.length < MIN_GAPS + 1) return null;
-  const gaps = [];
-  for (let i = 1; i < dates.length; i++) {
-    const g = daysBetween(parseISO(dates[i - 1]), parseISO(dates[i]));
-    if (isFinite(g) && g > 0) gaps.push(g);        // drop dupes/0-gaps/malformed
-  }
-  if (gaps.length < MIN_GAPS) return null;
-  const m = medianOf(gaps);
-  if (!isFinite(m) || m <= 0) return null;
-  const mad = medianOf(gaps.map(g => Math.abs(g - m)));
-  if (!isFinite(mad) || mad / m > MAX_REL_MAD) return null;
-  const sug = roundCadence(m);
-  const cur = item.cadenceDays || 30;
-  if (Math.abs(sug - cur) / cur <= NEAR_EQ) return null;   // no-nag gate
-  return sug;
-}
-function acceptSuggestion(id, value) {
-  const item = state.items[id]; if (!item) return;
-  item.cadenceDays = Math.max(1, parseInt(value, 10) || item.cadenceDays);
-  delete item.suggestDismissed;
-  save(); render();
-}
-function dismissSuggestion(id, value) {
-  const item = state.items[id]; if (!item) return;
-  item.suggestDismissed = parseInt(value, 10);
-  save(); render();
-}
-
 /* ---------- rendering ---------- */
 let showArchived = false;
 let toastTimer = null;        // archive-undo toast dismissal timer
@@ -1355,17 +1082,14 @@ let batchField = "cadence";   // "cadence" | "remind" — runtime only, not pers
 // Cadence values beyond the 1..30 row: the preset days over 30, plus 45 & 60.
 const BATCH_AXIS_PRESETS = [...new Set([45, 60, ...CADENCE_PRESETS.map(p => p.days).filter(d => d > 30)])].sort((a, b) => a - b);
 
-// A person is "parked" (out of the active list + due math) if archived OR
-// snoozed-until a future date. Snoozes self-expire by date (see isSnoozed).
-function isParked(i) { return i.archived || isSnoozed(i); }
 // Canonical ACTIVE set for ALL due math — ignores showArchived so the banner
-// never counts parked people, even while the archived/snoozed view is open.
+// never counts archived people, even while the archived view is open.
 function trackedItems() {
-  return Object.values(state.items).filter(i => !isParked(i));
+  return Object.values(state.items).filter(i => !i.archived);
 }
-// Display set — honors the toggle (active list vs archived/snoozed view).
+// Display set — honors the archived toggle (active list vs archived view).
 function visibleItems() {
-  return Object.values(state.items).filter(i => showArchived ? isParked(i) : !isParked(i));
+  return Object.values(state.items).filter(i => showArchived ? i.archived : !i.archived);
 }
 function sortedForMode() {
   let items = visibleItems();
@@ -1415,12 +1139,6 @@ function render() {
     li.draggable = draggable;
     const lm = lastMet(item);
     const remind = item.remindDays != null ? item.remindDays : state.globalRemindDays;
-    const snoozed = isSnoozed(item);
-    const sug = (!showArchived && !snoozed) ? suggestCadence(item) : null;   // suppress in parked view
-    // Snoozed people show a 💤 pill instead of the due/overdue status.
-    const pill = snoozed
-      ? `<span class="pill snoozed">💤 ${item.snoozedUntil}</span>`
-      : `<span class="pill ${st.cls}">${st.label}</span>`;
     if (grid) {
       // dense card: rank number + name + status + key facts, no action buttons
       li.innerHTML = `
@@ -1429,7 +1147,7 @@ function render() {
           <div class="card-title">
             <span class="rank-num">${i + 1}</span>
             <span class="grid-name">${escapeHtml(item.name)}</span>
-            ${pill}
+            <span class="pill ${st.cls}">${st.label}</span>
           </div>
           <div class="card-meta">
             every ${item.cadenceDays}d · ${lm ? humanizeRelative(lm) : "never met"} · ${item.history.length} logged
@@ -1441,28 +1159,18 @@ function render() {
         <div class="card-body">
           <div class="card-title">
             <span>${escapeHtml(item.name)}</span>
-            ${pill}
+            <span class="pill ${st.cls}">${st.label}</span>
           </div>
           <div class="card-meta">
             Every ${item.cadenceDays}d ·
             ${lm ? "last met " + humanizeRelative(lm) + ' <span style="opacity:.7">(' + lm + ')</span>' : "no meetings logged"} ·
-            ${item.history.length} logged · remind ${remind}d before${item.archived ? (item.archivedAt ? " · archived " + item.archivedAt : " · archived") : ""}${snoozed && item.snoozeReason ? " · 💤 " + escapeHtml(item.snoozeReason) : ""}
+            ${item.history.length} logged · remind ${remind}d before${item.archived ? (item.archivedAt ? " · archived " + item.archivedAt : " · archived") : ""}
           </div>
-          ${sug != null && sug !== (item.suggestDismissed != null ? item.suggestDismissed : null) ? `<div class="cadence-suggest" role="note">
-            💡 You're meeting ~every ${sug}d, but cadence is ${item.cadenceDays}d.
-            <span class="cs-actions">
-              <button class="mini accent" data-act="sug-accept" data-sug="${sug}">Use ${sug}d</button>
-              <button class="mini" data-act="sug-dismiss" data-sug="${sug}">Dismiss</button>
-            </span></div>` : ""}
           <div class="card-actions">
-            ${(item.archived || snoozed) ? "" : '<button class="mini accent" data-act="met">✔ Met today</button>'}
+            ${item.archived ? "" : '<button class="mini accent" data-act="met">✔ Met today</button>'}
             <button class="mini" data-act="hist">History</button>
             <button class="mini" data-act="edit">Edit</button>
-            ${snoozed
-              ? '<button class="mini" data-act="unsnooze">Wake up</button>'
-              : (item.archived
-                  ? '<button class="mini" data-act="archive">Restore</button>'
-                  : '<button class="mini" data-act="snooze">Snooze…</button><button class="mini" data-act="archive">Archive</button>')}
+            <button class="mini" data-act="archive">${item.archived ? "Restore" : "Archive"}</button>
           </div>
         </div>`;
     }
@@ -1490,51 +1198,6 @@ function renderBanner() {
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-}
-
-/* ---------- snooze ("snooze until a date" + reason) (P3-F7) ---------- */
-let snoozeId = null;
-function isSnoozed(item) {
-  const u = item && item.snoozedUntil;
-  return !!u && u >= todayISO();   // date-only YYYY-MM-DD string compare
-}
-// Drop snoozes whose date has passed; returns true if it mutated state.
-function clearExpiredSnoozes() {
-  let changed = false;
-  for (const it of Object.values(state.items)) {
-    if (it.snoozedUntil && it.snoozedUntil < todayISO()) {
-      delete it.snoozedUntil; delete it.snoozeReason; changed = true;
-    }
-  }
-  return changed;
-}
-// today + N days as a local-date YYYY-MM-DD (no UTC drift).
-function presetSnoozeDate(key) {
-  const n = key === "1w" ? 7 : key === "1m" ? 30 : 90;
-  const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + n);
-  const z = x => String(x).padStart(2, "0");
-  return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
-}
-function openSnooze(id) {
-  snoozeId = id; const it = state.items[id];
-  document.getElementById("snoozeTitle").textContent = "Snooze · " + it.name;
-  document.getElementById("sz_date").value = it.snoozedUntil || todayISO();
-  document.getElementById("sz_reason").value = it.snoozeReason || "";
-  document.getElementById("sz_unsnooze").style.display = isSnoozed(it) ? "" : "none";
-  openModal("snoozeModal");
-}
-function applySnooze(id, dateISO) {
-  const it = state.items[id]; if (!it) return;
-  if (!dateISO || !parseISO(dateISO) || dateISO < todayISO()) { alert("Pick today or a future date."); return; }
-  it.snoozedUntil = dateISO;
-  const reason = document.getElementById("sz_reason").value.trim();
-  if (reason) it.snoozeReason = reason; else delete it.snoozeReason;
-  save(); render(); closeModal("snoozeModal");
-}
-function unsnooze(id) {
-  const it = state.items[id]; if (!it) return;
-  delete it.snoozedUntil; delete it.snoozeReason;
-  save(); render(); closeModal("snoozeModal");
 }
 
 /* ---------- archive / restore (F7) ---------- */
@@ -1645,25 +1308,12 @@ function renderBatch() {
 }
 
 /* ---------- actions ---------- */
-// Log (or enrich) a meeting on a date. Same-day re-log with a note enriches the
-// existing entry rather than duplicating it; one entry per calendar day.
-function logMeeting(id, dateISO, note) {
+function logMeeting(id, dateISO) {
   const item = state.items[id];
   if (!item) return;
-  const n = (note || "").trim();
-  const existing = item.history.find(h => h.date === dateISO);
-  if (existing) { if (n) existing.note = n; }
-  else item.history.push(n ? { date: dateISO, note: n } : { date: dateISO });
-  item.history.sort(byDateAsc);
+  if (!item.history.includes(dateISO)) item.history.push(dateISO); // append-only
+  item.history.sort();
   save(); render();
-}
-// Set/clear a note on an existing meeting entry.
-function setMeetingNote(id, date, note) {
-  const item = state.items[id]; if (!item) return;
-  const e = item.history.find(h => h.date === date); if (!e) return;
-  const n = (note || "").trim();
-  if (n) e.note = n; else delete e.note;
-  save(); renderHist(); render();
 }
 
 /* ---------- history entry date extractor (F8; forward-compat with F2 notes) ----------
@@ -1720,10 +1370,13 @@ function editHistEntry(idx, newISO) {
   const item = state.items[histId]; if (!item) return;
   const entry = item.history[idx];
   if (!newISO || newISO === histDate(entry)) { editingHistDate = null; renderHist(); return; }
-  const next = item.history.slice();
-  next[idx] = { ...entry, date: newISO };   // keep the note, change the date
-  item.history = normalizeHistory(next);     // dedup-by-date (prefers non-empty note) + sort
-  editingHistDate = null;
+  const updated = typeof entry === "string" ? newISO : { ...entry, date: newISO };
+  const next = item.history.slice(); next[idx] = updated;
+  // dedup by date (keep first), then sort by date
+  const seen = new Set(); const deduped = [];
+  for (const e of next) { const d = histDate(e); if (seen.has(d)) continue; seen.add(d); deduped.push(e); }
+  deduped.sort((a, b) => histDate(a).localeCompare(histDate(b)));
+  item.history = deduped; editingHistDate = null;
   save(); renderHist(); render();
 }
 function deleteHistEntry(idx) {
@@ -1743,10 +1396,6 @@ document.getElementById("list").addEventListener("click", e => {
   else if (act === "hist") openHistory(id);
   else if (act === "edit") openEdit(id);
   else if (act === "archive") { if (state.items[id].archived) restoreItem(id); else archiveItem(id); }
-  else if (act === "snooze") openSnooze(id);
-  else if (act === "unsnooze") unsnooze(id);
-  else if (act === "sug-accept") acceptSuggestion(id, btn.dataset.sug);
-  else if (act === "sug-dismiss") dismissSuggestion(id, btn.dataset.sug);
 });
 
 /* ---------- drag & drop (manual mode) ---------- */
@@ -1890,13 +1539,13 @@ document.getElementById("editSave").onclick = () => {
   if (editingId) {
     const item = state.items[editingId];
     item.name = name; item.cadenceDays = cadence; item.remindDays = remindDays;
-    if (lastMetVal && lastMet(item) !== lastMetVal && !histDates(item).includes(lastMetVal)) {
-      item.history.push({ date: lastMetVal }); item.history.sort(byDateAsc);
+    if (lastMetVal && lastMet(item) !== lastMetVal && !item.history.includes(lastMetVal)) {
+      item.history.push(lastMetVal); item.history.sort();
     }
   } else {
     const id = uid();
     state.items[id] = { id, name, cadenceDays: cadence, remindDays,
-      history: lastMetVal ? [{ date: lastMetVal }] : [], archived: false };
+      history: lastMetVal ? [lastMetVal] : [], archived: false };
     state.manualOrder.push(id);
   }
   save(); render(); closeModal("editModal");
@@ -1904,105 +1553,30 @@ document.getElementById("editSave").onclick = () => {
 
 /* history modal */
 let histId = null;
-let editingHistDate = null;   // ISO date of the row whose DATE is being edited, or null
-let editingNoteDate = null;   // ISO date of the row whose NOTE is being edited, or null
+let editingHistDate = null;   // ISO date of the row currently being edited, or null
 function openHistory(id) {
   histId = id;
-  editingHistDate = null; editingNoteDate = null;
+  editingHistDate = null;
   document.getElementById("histTitle").textContent = "History · " + state.items[id].name;
   document.getElementById("h_date").value = todayISO();
-  document.getElementById("h_note").value = "";
   renderHist(); openModal("histModal");
 }
-/* ---------- history timeline viz (P3-F8) ---------- */
-// Clean ascending list of valid ISO meeting dates (tolerates legacy/import junk).
-function sanitizeHistory(item) {
-  const ds = histDates(item).filter(d => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d) && !isNaN(parseISO(d)));
-  return [...new Set(ds)].sort();
-}
-function buildTimelineModel(item) {
-  const dates = sanitizeHistory(item);
-  const cadence = Math.max(1, item.cadenceDays || 30);
-  const gaps = [];
-  let longestStreak = 0, run = 0, longestGapDays = 0;
-  for (let i = 1; i < dates.length; i++) {
-    const days = daysBetween(parseISO(dates[i - 1]), parseISO(dates[i]));
-    const cls = days <= cadence ? "on-track" : days <= cadence * 1.5 ? "due-soon" : "overdue";
-    gaps.push({ fromISO: dates[i - 1], toISO: dates[i], days, cls });
-    longestGapDays = Math.max(longestGapDays, days);
-    if (cls === "on-track") { run += 1; longestStreak = Math.max(longestStreak, run + 1); } else run = 0;
-  }
-  const firstISO = dates[0], lastISO = dates.at(-1);
-  const spanDays = dates.length ? daysBetween(parseISO(firstISO), parseISO(lastISO)) : 0;
-  const openCls = (dates.length && todayISO() > lastISO) ? statusOf(item).cls : null;
-  return { dates, gaps, spanDays, firstISO, lastISO, longestStreak, longestGapDays, openCls };
-}
-function computeMarkerX(dISO, firstISO, spanDays) {
-  if (spanDays <= 0) return 50;
-  return 4 + 92 * (daysBetween(parseISO(firstISO), parseISO(dISO)) / Math.max(spanDays, 1));
-}
-function renderTimeline() {
-  const el = document.getElementById("histViz"); if (!el) return;
-  const item = state.items[histId];
-  const m = buildTimelineModel(item);
-  if (!m.dates.length) { el.innerHTML = '<div class="tl-empty">No meetings logged yet — the timeline appears after the first one.</div>'; return; }
-  if (m.dates.length === 1) {
-    el.innerHTML = `<svg viewBox="0 0 100 16" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Met once on ${escapeHtml(m.dates[0])}">` +
-      `<circle class="tl-dot" cx="50" cy="8" r="2.2"><title>Met on ${escapeHtml(m.dates[0])}</title></circle></svg>` +
-      `<div class="tl-summary">Met once on ${escapeHtml(m.dates[0])}. Log more to see streaks &amp; gaps.</div>`;
-    return;
-  }
-  const segs = m.gaps.map(g =>
-    `<line class="tl-seg ${g.cls}" x1="${computeMarkerX(g.fromISO, m.firstISO, m.spanDays).toFixed(2)}" y1="8" ` +
-    `x2="${computeMarkerX(g.toISO, m.firstISO, m.spanDays).toFixed(2)}" y2="8"/>`).join("");
-  let open = "";
-  if (m.openCls) {
-    const todayX = computeMarkerX(todayISO(), m.firstISO, daysBetween(parseISO(m.firstISO), parseISO(todayISO())));
-    open = `<line class="tl-seg ${m.openCls === "overdue" ? "overdue" : "open"}" x1="${computeMarkerX(m.lastISO, m.firstISO, m.spanDays).toFixed(2)}" y1="8" x2="96" y2="8"/>` +
-      `<line class="tl-today" x1="96" y1="4" x2="96" y2="12"/>`;
-  }
-  const gapByTo = Object.fromEntries(m.gaps.map(g => [g.toISO, g.days]));
-  const dots = m.dates.map(d => {
-    const after = gapByTo[d] != null ? ` · ${gapByTo[d]}d after previous` : "";
-    return `<circle class="tl-dot" cx="${computeMarkerX(d, m.firstISO, m.spanDays).toFixed(2)}" cy="8" r="2"><title>Met on ${escapeHtml(d)}${after}</title></circle>`;
-  }).join("");
-  const streakClause = m.longestStreak > 0 ? `Longest on-cadence streak: ${m.longestStreak} meetings · ` : "";
-  const summary = `${streakClause}Longest gap: ${m.longestGapDays}d · ${m.dates.length} logged`;
-  el.innerHTML = `<svg viewBox="0 0 100 16" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${escapeHtml(summary)}">` +
-    `<line class="tl-base" x1="4" y1="8" x2="96" y2="8"/>${segs}${open}${dots}</svg>` +
-    `<div class="tl-summary">${escapeHtml(summary)}</div>`;
-}
-
 function renderHist() {
-  renderTimeline();
   const item = state.items[histId];
   const ul = document.getElementById("histList"); ul.innerHTML = "";
   if (!item.history.length) { ul.innerHTML = '<li style="color:var(--text-dim)">No meetings logged yet.</li>'; return; }
   // Pair each entry with its original index, then show most-recent first.
-  const pairs = item.history.map((entry, idx) => ({ d: entry.date, note: entry.note || "", idx }));
+  const pairs = item.history.map((entry, idx) => ({ d: histDate(entry), idx }));
   pairs.sort((a, b) => b.d.localeCompare(a.d));
-  for (const { d, note, idx } of pairs) {
+  for (const { d, idx } of pairs) {
     const li = document.createElement("li");
-    li.dataset.d = d;
     if (editingHistDate === d) {
-      // date editor (F8)
       li.innerHTML = `<input type="date" class="hist-edit-input" value="${d}">` +
         `<span class="hist-row-actions">` +
         `<button class="mini accent" data-save="${idx}">Save</button>` +
         `<button class="mini" data-cancel="1">Cancel</button></span>`;
-    } else if (editingNoteDate === d) {
-      // note editor (F2) — inline reveal, not prompt()
-      li.innerHTML = `<div class="hist-row-main"><span>${d}</span>` +
-        `<textarea class="hist-note-input" rows="2" maxlength="280" autocomplete="off" ` +
-        `autocapitalize="sentences" spellcheck="true" enterkeyhint="done" ` +
-        `placeholder="e.g. coffee, talked about the new role">${escapeHtml(note)}</textarea></div>` +
-        `<span class="hist-row-actions">` +
-        `<button class="mini accent" data-savenote="1">Save note</button>` +
-        `<button class="mini" data-cancelnote="1">Cancel</button></span>`;
     } else {
-      const noteHtml = note ? `<div class="hist-note">${escapeHtml(note)}</div>` : "";
-      li.innerHTML = `<div class="hist-row-main"><span>${d} <span style="color:var(--text-dim)">· ${humanizeRelative(d)}</span></span>${noteHtml}` +
-        `<button class="hist-addnote link-btn" data-notebtn="1">${note ? "Edit note" : "+ note"}</button></div>` +
+      li.innerHTML = `<span>${d} <span style="color:var(--text-dim)">· ${humanizeRelative(d)}</span></span>` +
         `<span class="hist-row-actions">` +
         `<button class="mini" data-edit="${idx}">Edit</button>` +
         `<button class="mini" data-del="${idx}">Delete</button></span>`;
@@ -2012,29 +1586,19 @@ function renderHist() {
 }
 document.getElementById("h_add").onclick = () => {
   const d = document.getElementById("h_date").value;
-  const note = document.getElementById("h_note").value.trim();
-  if (d) { editingHistDate = null; editingNoteDate = null; logMeeting(histId, d, note); document.getElementById("h_note").value = ""; renderHist(); }
+  if (d) { editingHistDate = null; logMeeting(histId, d); renderHist(); }
 };
 document.getElementById("histList").addEventListener("click", e => {
-  const btn = e.target.closest("[data-edit],[data-del],[data-save],[data-cancel],[data-notebtn],[data-savenote],[data-cancelnote]");
-  if (!btn) return;
+  const btn = e.target.closest("[data-edit],[data-del],[data-save],[data-cancel]"); if (!btn) return;
   const li = e.target.closest("li");
   const item = state.items[histId];
-  const date = li.dataset.d;
   if (btn.dataset.del != null) { deleteHistEntry(+btn.dataset.del); }
   else if (btn.dataset.edit != null) {
-    editingNoteDate = null; editingHistDate = histDate(item.history[+btn.dataset.edit]); renderHist();
+    editingHistDate = histDate(item.history[+btn.dataset.edit]); renderHist();
     document.querySelector(".hist-edit-input")?.focus();
   } else if (btn.dataset.save != null) {
     const inp = li.querySelector(".hist-edit-input"); editHistEntry(+btn.dataset.save, inp ? inp.value : "");
   } else if (btn.dataset.cancel != null) { editingHistDate = null; renderHist(); }
-  else if (btn.dataset.notebtn != null) {
-    editingHistDate = null; editingNoteDate = date; renderHist();
-    document.querySelector(".hist-note-input")?.focus();
-  } else if (btn.dataset.savenote != null) {
-    const ta = li.querySelector(".hist-note-input"); editingNoteDate = null;
-    setMeetingNote(histId, date, ta ? ta.value.trim() : "");
-  } else if (btn.dataset.cancelnote != null) { editingNoteDate = null; renderHist(); }
 });
 // Keyboard: Enter commits the edit row, Escape cancels (no mouse trip needed).
 document.getElementById("histList").addEventListener("keydown", e => {
@@ -2045,14 +1609,6 @@ document.getElementById("histList").addEventListener("keydown", e => {
   else if (e.key === "Escape") { e.preventDefault(); editingHistDate = null; renderHist(); }
 });
 document.getElementById("histClose").onclick = () => closeModal("histModal");
-
-/* snooze modal (P3-F7) */
-document.querySelectorAll("#snoozeModal [data-snooze]").forEach(b => {
-  b.onclick = () => { document.getElementById("sz_date").value = presetSnoozeDate(b.dataset.snooze); };
-});
-document.getElementById("sz_apply").onclick = () => applySnooze(snoozeId, document.getElementById("sz_date").value);
-document.getElementById("sz_unsnooze").onclick = () => unsnooze(snoozeId);
-document.getElementById("snoozeCancel").onclick = () => closeModal("snoozeModal");
 
 /* settings */
 document.getElementById("settingsBtn").onclick = () => {
@@ -2080,72 +1636,18 @@ document.getElementById("s_remind").onchange = e => {
   save(); render();
 };
 document.getElementById("settingsClose").onclick = () => closeModal("settingsModal");
-// Parse delimited (TSV/CSV) rows — e.g. cells copied from Google Sheets — into
-// a state object. Expects a header row; maps known columns, ignores unknowns.
-function parseDelimited(text) {
-  const lines = text.replace(/\r\n?/g, "\n").split("\n").filter(l => l.trim() !== "");
-  if (lines.length < 2) throw new Error("need a header row + at least one data row");
-  const delim = lines[0].includes("\t") ? "\t" : ",";
-  const splitRow = l => l.split(delim).map(c => c.trim().replace(/^"(.*)"$/, "$1").replace(/""/g, '"'));
-  const header = splitRow(lines[0]).map(h => h.toLowerCase());
-  const col = name => header.indexOf(name);
-  const ci = { id: col("id"), name: col("name"), cadence: col("cadencedays") !== -1 ? col("cadencedays") : col("cadence_days"),
-    history: col("history"), remind: col("reminddays") !== -1 ? col("reminddays") : col("remind_days"),
-    archived: col("archived"), meeting: col("meeting_date") };
-  if (ci.name === -1) throw new Error('no "name" column found in the header row');
-  const items = {}, order = [];
-  for (let i = 1; i < lines.length; i++) {
-    const r = splitRow(lines[i]);
-    const name = r[ci.name]; if (!name) continue;
-    const id = (ci.id !== -1 && r[ci.id]) ? r[ci.id] : "p_imp_" + i;
-    // CSV history export is one-row-per-meeting (meeting_date); the all-data sheet
-    // has a comma/space-joined history cell. Support both.
-    let dates = [];
-    if (ci.history !== -1 && r[ci.history]) dates = r[ci.history].split(/[,\s]+/).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d));
-    if (ci.meeting !== -1 && r[ci.meeting] && /^\d{4}-\d{2}-\d{2}$/.test(r[ci.meeting])) dates.push(r[ci.meeting]);
-    if (!items[id]) {
-      items[id] = { id, name,
-        cadenceDays: ci.cadence !== -1 ? (parseInt(r[ci.cadence], 10) || 30) : 30,
-        remindDays: (ci.remind !== -1 && r[ci.remind] !== "" && r[ci.remind] != null) ? parseInt(r[ci.remind], 10) : null,
-        archived: ci.archived !== -1 ? /^true$/i.test(r[ci.archived]) : false,
-        history: dates.map(d => ({ date: d })) };
-      order.push(id);
-    } else {
-      for (const d of dates) if (!items[id].history.some(h => h.date === d)) items[id].history.push({ date: d });
-    }
-  }
-  return { schemaVersion: 1, project: PROJECT, globalRemindDays: state.globalRemindDays, mode: state.mode, manualOrder: order, items };
-}
-// Import JSON or delimited text; JSON replaces, delimited MERGES into current project.
-function importText(text) {
-  const t = text.trim();
-  if (t.startsWith("{")) {
-    const data = JSON.parse(t);
-    if (!data.items) throw new Error("not a Keep In Touch JSON export");
-    state = mergeState(data);
-  } else {
-    const incoming = mergeState(parseDelimited(t));   // normalizes history
-    state = unionStates(state, incoming);             // merge, never lose existing
-  }
-  save(); render(); updateProjectBar();
-}
 document.getElementById("s_import").onchange = e => {
   const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
-    try { importText(reader.result); closeModal("settingsModal"); alert("Imported."); }
-    catch (err) { alert("Import failed: " + err.message); }
+    try {
+      const data = JSON.parse(reader.result);
+      if (!data.items) throw new Error("not a Keep In Touch export");
+      state = mergeState(data);
+      save(); render(); closeModal("settingsModal"); alert("Imported.");
+    } catch (err) { alert("Import failed: " + err.message); }
   };
   reader.readAsText(file);
-};
-document.getElementById("s_paste_import").onclick = () => {
-  const text = document.getElementById("s_paste").value;
-  if (!text.trim()) { alert("Paste some data first."); return; }
-  try {
-    importText(text);
-    document.getElementById("s_paste").value = "";
-    closeModal("settingsModal"); alert("Imported.");
-  } catch (err) { alert("Import failed: " + err.message); }
 };
 
 /* export */
@@ -2210,7 +1712,7 @@ document.getElementById("p_rename").onclick = async () => {
 /* archived toggle */
 document.getElementById("toggleArchived").onclick = e => {
   showArchived = !showArchived;
-  e.target.textContent = showArchived ? "Show active" : "Show snoozed / archived";
+  e.target.textContent = showArchived ? "Show active" : "Show archived";
   e.target.classList.toggle("primary", showArchived);
   hideToast();
   render();
