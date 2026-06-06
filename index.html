@@ -643,10 +643,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.25.0";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.26.0";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.25.0: cross-device scalar arbitration + reserved-tab guard)
+   Keep In Touch — renderer (v1.26.0: unsynced-edit protection — failed/pending Sheet POST no longer silently reverts)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -786,6 +786,59 @@ function setSheetCfg(cfg) {
     // leave the device-wide default unless the user explicitly disconnects everywhere
   }
 }
+/* ---------- unsynced-edit protection (v1.26) ----------
+   A failed Sheet POST (offline / lapsed Google auth / transient network) writes
+   the edit to localStorage but never reaches the Sheet. Without protection, the
+   NEXT load's preferRemoteScalars:true would overwrite that unsynced local edit
+   with the Sheet's stale value — a silent revert (round-4 audit bug).
+   We snapshot the scalar fields last CONFIRMED-written to the Sheet (per project).
+   An id whose local scalars differ from that snapshot is "dirty" and keeps its
+   LOCAL scalars on load until a POST succeeds. A persisted marker drives a retry
+   (on `online` / page-hide) and a sticky "unsynced" indicator. History is never
+   affected — it is always unioned. Discrimination is per-id so a genuine
+   cross-device edit to a DIFFERENT person still wins (doesn't re-break round 3). */
+// Only the scalar fields the backend actually persists+reads-back (Code.gs HEADERS):
+// name | cadenceDays | remindDays | archived | snoozedUntil | suggestDismissed.
+// Local-only fields (archivedAt, snoozeReason) are deliberately EXCLUDED — the
+// remote-built baseline can't contain them, so including them would flag every
+// archived/snoozed person as perpetually dirty during an unsynced window and
+// re-open the round-3 cross-device shadow. A meaningful edit to those always
+// co-occurs with a persisted field (archived / snoozedUntil), so detection holds;
+// and a dirty id keeps its WHOLE local item, so the local-only fields survive too.
+const SCALAR_FIELDS = ["name", "cadenceDays", "remindDays", "archived", "snoozedUntil", "suggestDismissed"];
+function scalarsOf(item) { const o = {}; for (const f of SCALAR_FIELDS) if (item[f] !== undefined) o[f] = item[f]; return o; }
+function scalarsSnapshot(st) { const m = {}; for (const [id, it] of Object.entries((st && st.items) || {})) m[id] = scalarsOf(it); return m; }
+// Record the scalar snapshot last CONFIRMED on the Sheet. Takes a pre-built
+// snapshot (NOT live state) so an edit made while a POST is in flight isn't
+// wrongly recorded as synced when that earlier POST resolves.
+function setSynced(proj, snapshot) { try { localStorage.setItem("keepInTouch.synced." + proj, JSON.stringify(snapshot)); } catch (e) {} }
+function getSynced(proj) { try { return JSON.parse(localStorage.getItem("keepInTouch.synced." + proj)); } catch (e) { return null; } }
+function markUnsynced(proj) { try { localStorage.setItem("keepInTouch.unsynced." + proj, String(Date.now())); } catch (e) {} }
+function clearUnsynced(proj) { try { localStorage.removeItem("keepInTouch.unsynced." + proj); } catch (e) {} }
+function isUnsynced(proj) { try { return !!localStorage.getItem("keepInTouch.unsynced." + (proj || PROJECT)); } catch (e) { return false; } }
+// ids whose local scalars differ from the last Sheet-confirmed snapshot — i.e.
+// edits made here that haven't been confirmed-written to the Sheet yet (a POST
+// failed OR is still pending/debounced). Returns null when no baseline exists.
+function dirtyScalarIds() {
+  const synced = getSynced(PROJECT);
+  if (!synced) return null;
+  const dirty = new Set();
+  for (const [id, it] of Object.entries(state.items || {})) {
+    if (JSON.stringify(scalarsOf(it)) !== JSON.stringify(synced[id] || {})) dirty.add(id);
+  }
+  return dirty;
+}
+// True when this project has local scalar edits not yet confirmed on the Sheet.
+// Drives the retry-on-load/online and the page-hide beacon flush. Uses the
+// state-vs-baseline diff (catches a pending edit reloaded before its debounce
+// fired, not just an explicitly-failed POST) OR the persisted failure marker
+// (covers the no-baseline failed-connect case where the diff can't be computed).
+function hasUnsyncedEdits() {
+  const d = dirtyScalarIds();
+  if (d === null) return isUnsynced(PROJECT);   // no baseline → rely on the marker
+  return d.size > 0 || isUnsynced(PROJECT);
+}
+
 // A reserved tab that mirrors the set of known project names, so devices sharing
 // one Sheet discover each other's projects WITHOUT any backend redeploy (it rides
 // the normal project read/write API). Hidden from the switcher.
@@ -822,14 +875,30 @@ async function fetchSheetJson(url, opts) {
 }
 async function loadFromSheet(cfg) {
   const data = await fetchSheetJson(sheetEndpoint(cfg), { method: "GET" });
+  const remote = mergeState(data);
   // UNION the remote into whatever is already loaded (the local cache, loaded by
   // loadProjectData first) instead of hard-replacing — so a transient empty/sparse
   // Sheet can't wipe cached people, and locally-cached meeting NOTES survive (notes
   // aren't stored in the Sheet). preferRemoteScalars: a steady-state load takes the
   // Sheet's scalar fields (cadence/archive/snooze/etc) so an edit from ANOTHER device
   // isn't shadowed by this device's stale cache — while still UNIONing history.
-  state = unionStates(state, mergeState(data), { preferRemoteScalars: true });
+  //
+  // Protection (round-4 fix): shield local scalar edits that haven't been confirmed
+  // on the Sheet from being reverted by the stale remote. `dirtyScalarIds()` diffs
+  // current local scalars against the last Sheet-confirmed snapshot, so it catches
+  // BOTH a failed POST AND an edit reloaded before its 800ms debounce fired. An id
+  // with NO local change isn't dirty → remote still wins for it, so a genuine
+  // cross-device edit to a different person is never shadowed (round-3 stays fixed).
+  // null (no baseline yet, first-ever sync) → protect all for this one load, until
+  // the baseline below is written.
+  const dirtyIds = dirtyScalarIds();
+  state = unionStates(state, remote, { preferRemoteScalars: true, dirtyIds });
   source = "sheet";
+  // Record what the Sheet now holds as the synced scalar baseline, so a FUTURE
+  // failed POST can be detected precisely (local-vs-baseline diff). Safe to refresh
+  // every load: a still-dirty id's local scalars differ from this remote baseline,
+  // so it stays detected as dirty until its POST finally succeeds.
+  setSynced(PROJECT, scalarsSnapshot(remote));
 }
 let sheetSaveTimer = null;
 // Prepare state for POST. History entries are kept as {date, note?} objects so a
@@ -850,21 +919,43 @@ function scheduleSheetSave(cfg) {
   localStorage.setItem(LS_KEY, JSON.stringify(state));  // offline cache keeps full objects (notes)
   setSaveStatus("saving");
   if (sheetSaveTimer) clearTimeout(sheetSaveTimer);
-  sheetSaveTimer = setTimeout(() => {
-    // text/plain body avoids a CORS preflight Apps Script can't answer
-    fetch(sheetEndpoint(cfg), { method: "POST", body: JSON.stringify(sheetSafeState()) })
-      .then(async res => {
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        // The backend returns {ok:true} on success or {error:...} on rejection
-        // (e.g. wrong token) — both at HTTP 200. Treat an in-body error as failure
-        // so a rejected save never shows "saved ✓" (silent data loss).
-        const d = await res.json().catch(() => null);
-        if (d && d.error) throw new Error(d.error);
-        if (!d || d.ok !== true) throw new Error("unexpected save response");
-        setSaveStatus("saved");
-      })
-      .catch(err => { console.error("sheet save failed (cached locally)", err); setSaveStatus("failed"); });
-  }, 800);
+  sheetSaveTimer = setTimeout(() => flushSheetSave(cfg), 800);
+}
+// Perform the actual POST now (used by the debounce, the online-retry, the
+// page-hide flush, and switchProjectInPlace). `proj` is captured so a flush
+// that resolves after an in-place project switch updates the RIGHT project's
+// sync state, not the one now in view.
+function flushSheetSave(cfg, proj = PROJECT) {
+  if (sheetSaveTimer) { clearTimeout(sheetSaveTimer); sheetSaveTimer = null; }
+  // Snapshot what we're about to send so that, on success, we record EXACTLY
+  // these scalars as synced — not whatever state holds when the POST resolves
+  // (which may include a newer, not-yet-sent edit that is still legitimately dirty).
+  const sentScalars = scalarsSnapshot(state);
+  const endpoint = sheetEndpointFor(cfg, proj);
+  // text/plain body avoids a CORS preflight Apps Script can't answer
+  return fetch(endpoint, { method: "POST", body: JSON.stringify(sheetSafeState()) })
+    .then(async res => {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      // The backend returns {ok:true} on success or {error:...} on rejection
+      // (e.g. wrong token) — both at HTTP 200. Treat an in-body error as failure
+      // so a rejected save never shows "saved ✓" (silent data loss).
+      const d = await res.json().catch(() => null);
+      if (d && d.error) throw new Error(d.error);
+      if (!d || d.ok !== true) throw new Error("unexpected save response");
+      // Confirmed on the Sheet: record the synced scalar baseline and clear the
+      // unsynced marker so the next load lets remote scalars win again (round 3).
+      setSynced(proj, sentScalars);
+      clearUnsynced(proj);
+      if (proj === PROJECT) { setSaveStatus("saved"); updateProjectBar(); }
+    })
+    .catch(err => {
+      // POST failed — the edit is cached locally but NOT on the Sheet. Persist an
+      // unsynced marker so (a) the next load protects this project's dirty scalars
+      // from a stale-remote revert and (b) we retry on reconnect / page-hide.
+      console.error("sheet save failed (cached locally, will retry)", err);
+      markUnsynced(proj);
+      if (proj === PROJECT) { setSaveStatus("failed"); updateProjectBar(); }
+    });
 }
 
 /* ---------- IndexedDB: remember the connected file handle per project ---- */
@@ -954,6 +1045,11 @@ function mergeState(raw) {
    With an empty remote (first connect) the result equals local exactly. */
 function unionStates(local, remote, opts) {
   const preferRemoteScalars = !!(opts && opts.preferRemoteScalars);
+  // dirtyIds: ids whose local scalar edit hasn't been confirmed-saved to the Sheet
+  // yet, so they must keep LOCAL scalars even in a preferRemoteScalars load. A null
+  // dirtyIds (no baseline) means "protect everything" — the safe default.
+  const dirtyIds = opts ? opts.dirtyIds : undefined;
+  const isDirty = (id) => dirtyIds === null ? true : (dirtyIds instanceof Set && dirtyIds.has(id));
   const out = structuredClone(local);
   const rItems = (remote && remote.items) || {};
   for (const id of Object.keys(rItems)) {
@@ -963,12 +1059,12 @@ function unionStates(local, remote, opts) {
     // when the same date appears on both (its dedup does keepNote = note||prev.note).
     // Plain concat + normalize avoids the old first-seen-wins bug that dropped notes.
     const mergedHistory = normalizeHistory([...(out.items[id].history || []), ...(r.history || [])]);
-    if (preferRemoteScalars) {
+    if (preferRemoteScalars && !isDirty(id)) {
       // Steady-state Sheet load: the Sheet is the shared source of truth, so a
       // scalar edit (cadence/remind/archive/snooze/name) made on ANOTHER device
-      // wins here instead of being shadowed by this device's stale cache. (Local
-      // edits are already POSTed on change, so remote reflects them.) History is
-      // still unioned, never replaced — so nothing is dropped.
+      // wins here instead of being shadowed by this device's stale cache. History
+      // is still unioned, never replaced — so nothing is dropped. (Skipped for
+      // dirty ids, whose unsynced local scalar edit must not be reverted.)
       out.items[id] = Object.assign(structuredClone(r), { history: mergedHistory });
     } else {
       // Connect/import: keep local scalars (preserve what's in front of the user /
@@ -1102,6 +1198,12 @@ async function loadProjectData({ canPrompt }) {
       // mergeState dropped it — write the cleaned data straight back so the Sheet
       // self-heals just by opening it (no edit required, on any device).
       if (healedCorruptionOnLoad) { console.log("Healed corrupt history on load — re-saving clean data."); save(); }
+      // We just reached the Sheet for the READ, so we're online + reachable. If a
+      // local scalar edit is still unsynced (POST failed earlier, OR was reloaded
+      // before its debounce fired — both protected from revert in the union above),
+      // push it up NOW. The `online` event won't fire on a normal load, so this is
+      // the only automatic retry on a cold open. (v1.26)
+      else if (hasUnsyncedEdits()) { console.log("Pushing unsynced scalar edit on load."); flushSheetSave(sheetCfg, PROJECT); }
     } catch (e) {
       console.error("sheet load failed, using local cache", e);
       // Keep the device Sheet-BOUND (source="sheet") so saves still POST and we
@@ -1150,6 +1252,16 @@ async function loadProjectData({ canPrompt }) {
 async function switchProjectInPlace(name) {
   const target = normProject(name);
   if (target === PROJECT) { closeModal("projectModal"); return; }
+  // FLUSH any pending debounced Sheet save for the CURRENT project BEFORE we
+  // switch context — otherwise the in-flight edit is silently dropped (it would
+  // also POST under the wrong project once PROJECT changes). Fire it now bound to
+  // the project we're leaving; on failure flushSheetSave marks it unsynced so the
+  // edit is recovered on that project's next load / retry. (round-4 adjacent fix)
+  if (sheetSaveTimer) {
+    const leavingCfg = getSheetCfg();
+    if (leavingCfg) flushSheetSave(leavingCfg, PROJECT);
+    else { clearTimeout(sheetSaveTimer); sheetSaveTimer = null; }
+  }
   setProjectContext(target);
   clearTombstone(PROJECT);        // explicit user intent — un-tombstone if re-creating
   registerProject(PROJECT);
@@ -1157,7 +1269,6 @@ async function switchProjectInPlace(name) {
   // reset per-project runtime state
   state = structuredClone(DEFAULT_STATE);
   fileHandle = null; pendingHandle = null; source = "local"; reconnectArmed = false;
-  if (sheetSaveTimer) { clearTimeout(sheetSaveTimer); sheetSaveTimer = null; }
   // reset the archived view (the in-place path keeps the module var; reload wouldn't)
   showArchived = false; hideToast(); document.body.classList.remove("archived-view");
   const tb = document.getElementById("toggleArchived");
@@ -1378,6 +1489,10 @@ function updateProjectBar() {
       ? "· ⚠ couldn't sync — check your Sheet URL / token"
       : sheetSyncError === "sync"
       ? "· ⚠ couldn't reach the Sheet — showing last saved"
+      : isUnsynced(PROJECT)
+      // A scalar edit hasn't reached the Sheet yet (a POST failed). Persistent —
+      // not a 4s toast — so the user knows; it auto-clears once a retry succeeds.
+      ? "· ⚠ unsynced changes — will retry when back online"
       : "· synced to Google Sheet";
   } else if (source === "file") {
     label.textContent = "· saved to connected file";
@@ -2454,6 +2569,30 @@ document.getElementById("pwaHintClose").onclick = () => {
   localStorage.setItem("keepInTouch.pwaIosHintDismissed", "1");
   document.getElementById("pwaHint").hidden = true;
 };
+
+/* ---------- unsynced-edit retry (v1.26) ----------
+   A scalar edit whose Sheet POST failed (or was reloaded before its debounce fired)
+   is preserved locally and protected from stale-remote revert on load. When the
+   network returns, recover it AUTOMATICALLY — but UNION-FIRST so we don't clobber
+   people another device added while we were offline. We route through
+   loadProjectData (GET → union, shielding our dirty ids → its own on-load retry
+   POSTs the merged state), never a blind local-only POST. No-op unless Sheet-bound
+   and actually unsynced.
+   NOTE: we deliberately do NOT use a pagehide/visibilitychange sendBeacon flush
+   (the audit's suggestion #3). A beacon can't read a response and can't union
+   first, so it would blind-overwrite the Sheet with local-only state on tab close —
+   wiping any people a second device added that this device hasn't synced yet. The
+   edit is already durably cached + protected, and recovers on the next open or
+   `online` event, so the beacon's only gain (propagating before a reopen) isn't
+   worth that data-loss risk. */
+async function retryPendingSheetSave() {
+  if (source !== "sheet" || !hasUnsyncedEdits()) return;
+  const cfg = getSheetCfg();
+  if (!cfg) return;
+  try { await loadProjectData({ canPrompt: false }); render(); updateProjectBar(); }
+  catch (e) { console.error("online-retry reload failed", e); }
+}
+window.addEventListener("online", retryPendingSheetSave);
 
 init();
 // PWA setup runs after init, never blocking first paint.

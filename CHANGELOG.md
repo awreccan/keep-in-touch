@@ -2,6 +2,11 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.26.0 — 2026-06-06
+### Fixed (fourth-audit finding)
+- **An edit made while offline (or during a hiccup) is never silently lost.** If saving to the Sheet fails — you're offline, your Google sign-in lapsed, or the network blips — the change you made (a cadence, snooze, archive, rename, etc.) used to be quietly reverted to the Sheet's old value the next time the app opened. Now that change is protected: it sticks across reloads, the project bar shows a persistent **"⚠ unsynced changes — will retry when back online"** note, and the app automatically pushes it up the moment it reconnects (or the next time you open it online). Other people's edits and any contacts added on another device are still merged in correctly — your unsynced change doesn't overwrite them, and theirs don't overwrite yours.
+- **Switching projects mid-save no longer drops the in-flight change.** If you edited someone and immediately switched projects within the brief save window, that pending save is now flushed for the project you're leaving instead of being discarded.
+
 ## v1.25.0 — 2026-06-06
 ### Fixed (third-audit findings)
 - **Edits made on another device now stick.** Previously, changing a person's cadence, archive, or snooze on one device could be silently reverted when another device (with an older cached copy) synced. A normal Sheet load now takes the latest values from the Sheet for fields like cadence/archive/snooze, while still combining meeting history from both sides — so cross-device edits no longer fight each other.
