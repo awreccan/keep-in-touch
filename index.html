@@ -1167,8 +1167,8 @@ async function connectSheet(url, token) {
 }
 // Cross-device project discovery. Two mechanisms, both attempted:
 //  (1) ?action=projects — if the backend is the v1.16+ build, this returns ALL
-//      tab names (incl. tabs created outside this app, e.g. a pre-existing
-//      ppl-tier01). No-ops on older backends.
+//      tab names (including tabs created outside this app). No-ops on older
+//      backends.
 //  (2) a shared REGISTRY_TAB read+written through the normal project API — works
 //      on ANY deployed backend (no redeploy), so projects created on one device
 //      propagate to others. Each device merges the union and writes it back.
