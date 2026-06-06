@@ -643,10 +643,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.18.0";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.19.0";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.18.0: normalizeHistory drops corrupt [object Object] tokens — self-heals old data)
+   Keep In Touch — renderer (v1.19.0: backend coerces Sheets-typed dates to YYYY-MM-DD)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").

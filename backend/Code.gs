@@ -70,6 +70,16 @@ function getOrCreateSheet(project) {
   return sheet;
 }
 
+// A cell that Google Sheets auto-typed as a Date stringifies to a locale string
+// like "Thu Apr 30 2026 00:00:00 GMT-0700 (Pacific Daylight Time)" — which, once
+// split/sorted, becomes garbage. Coerce real Dates to YYYY-MM-DD; pass strings through.
+function cellToText(v) {
+  if (v instanceof Date) {
+    return Utilities.formatDate(v, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  }
+  return String(v == null ? "" : v).trim();
+}
+
 function readState(sheet, project) {
   var values = sheet.getDataRange().getValues();
   var items = {};
@@ -81,8 +91,9 @@ function readState(sheet, project) {
     var name = String(row[1] || "").trim();
     if (!id && !name) continue;          // skip blank rows
     if (!id) id = "p_row" + r;           // human added a name without id
-    var historyRaw = String(row[4] || "").trim();
-    var history = historyRaw ? historyRaw.split(/[,\s]+/).filter(String) : [];
+    // history may be one date-typed cell, or comma/space-joined dates; coerce Dates first
+    var historyRaw = cellToText(row[4]);
+    var history = historyRaw ? historyRaw.split(/[,\s]+/).map(cellToText).filter(String) : [];
     history.sort();
     var item = {
       id: id,
@@ -92,7 +103,7 @@ function readState(sheet, project) {
       remindDays: row[5] === "" || row[5] === null ? null : parseInt(row[5], 10),
       archived: row[6] === true || String(row[6]).toUpperCase() === "TRUE"
     };
-    var snoozedUntil = String(row[8] || "").trim();
+    var snoozedUntil = cellToText(row[8]);                // Date-typed cell → YYYY-MM-DD
     if (snoozedUntil) item.snoozedUntil = snoozedUntil;   // optional; absent if blank
     var sd = row[9] === "" || row[9] === null || row[9] === undefined ? null : parseInt(row[9], 10);
     if (sd != null && !isNaN(sd)) item.suggestDismissed = sd;   // cadence value the user rejected

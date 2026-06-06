@@ -54,7 +54,7 @@ Get a once-a-day email listing who's due or overdue — across **all** your proj
 - Edit the code, then **Deploy → Manage deployments → ✏️ Edit → Version: New version → Deploy**. The URL stays the same.
 - If you added/changed reminder code, also re-run `installDailyReminder` once.
 
-> **v1.16 backend update (recommended):** paste the latest `Code.gs` and redeploy a new version. It (a) writes meeting history as dates even from newer app versions (defensive against the `[object Object]` corruption — the app also guards this client-side) and (b) adds `?action=projects` so a freshly-connected device can list the Sheet's existing project tabs. Existing data and the URL are unaffected.
+> **Backend update (recommended, v1.16→v1.19):** paste the latest `Code.gs` and redeploy a new version. It (a) writes meeting history as dates even from newer app versions (defensive against the `[object Object]` corruption — the app also guards this client-side), (b) adds `?action=projects` so a freshly-connected device can list the Sheet's existing project tabs, and (c) coerces any cell Google Sheets auto-typed as a Date into plain `YYYY-MM-DD` on read (prevents the "Thu Apr 30 2026 … (Pacific Daylight Time)" garbage). Existing data and the URL are unaffected.
 
 ## Security notes
 - The deployment URL is an unguessable secret. Anyone with it can read/write your Sheet → don't paste it in public places.

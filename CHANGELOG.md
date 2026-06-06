@@ -2,6 +2,10 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.19.0 — 2026-06-05
+### Fixed
+- **Dates that Google Sheets auto-formats no longer corrupt your data.** If Sheets turned a date cell into a real date value, the backend used to stringify it as a long locale string (e.g. "Thu Apr 30 2026 00:00:00 GMT-0700 (Pacific Daylight Time)") which then got scrambled. The backend now converts any date-typed cell to plain `YYYY-MM-DD` on read. Combined with the v1.18 self-heal on load, this both prevents and cleans up that garbage. **Requires redeploying `backend/Code.gs`.**
+
 ## v1.18.0 — 2026-06-05
 ### Fixed
 - **Old corrupted data now self-heals on load.** If a project's meeting history was previously damaged (cells showing `[object Object]` from the earlier sync bug), opening it now silently drops the garbage tokens, keeps any real dates, and writes clean data back on the next save — no crash, no manual cleanup needed. (Meeting dates are validated as real `YYYY-MM-DD` values before use.)
