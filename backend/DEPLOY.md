@@ -61,11 +61,11 @@ Get a once-a-day email listing who's due or overdue — across **all** your proj
 
 ## How the Sheet looks (each project tab)
 
-| id | name | cadenceDays | lastMet | history | remindDays | archived | rank | snoozedUntil |
-|----|------|-------------|---------|---------|-----------|----------|------|--------------|
-| p_a | Alex Rivera | 30 | 2026-06-01 | 2026-05-01, 2026-06-01 |  | FALSE | 0 |  |
+| id | name | cadenceDays | lastMet | history | remindDays | archived | rank | snoozedUntil | suggestDismissed |
+|----|------|-------------|---------|---------|-----------|----------|------|--------------|------------------|
+| p_a | Alex Rivera | 30 | 2026-06-01 | 2026-05-01, 2026-06-01 |  | FALSE | 0 |  |  |
 
-> Existing Sheets from before this column was added keep working — the script appends `snoozedUntil` automatically on the next write. A blank cell means "not snoozed".
+> Existing Sheets from before these columns were added keep working — the script appends `snoozedUntil` and `suggestDismissed` automatically on the next write. Blank cells mean "not snoozed" / "no suggestion dismissed".
 
 - Edit any cell directly in Sheets — the app picks it up on next load/sync.
 - **`history` is the source of truth** and append-only. Add dates; don't delete past ones.

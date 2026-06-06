@@ -2,6 +2,10 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.13.0 — 2026-06-05
+### Added
+- **Adaptive cadence suggestions (P3-F3).** When your actual meeting rhythm with someone drifts from the cadence you set, the card gently suggests the real one — e.g. "💡 You're meeting ~every 30d, but cadence is 7d." Tap "Use 30d" to apply it or "Dismiss" to keep yours (it won't nag again unless your rhythm changes). Only appears with enough history (4+ meetings) and a steady rhythm — never for erratic or near-matching cadences. Suggestion math uses the median gap, so one outlier won't skew it.
+
 ## v1.12.0 — 2026-06-05
 ### Added
 - **Snooze (P3-F7).** Temporarily hide someone until a date — handy when a person is on sabbatical, traveling, or you've agreed to reconnect later. Tap "Snooze…" on a card, pick 1 week / 1 month / 3 months or a specific date, optionally add a reason. Snoozed people drop out of your due/overdue list and the reminder email, show a 💤 badge in the "Show snoozed / archived" view, and **return to your active list automatically** when the date passes (or tap "Wake up" anytime).

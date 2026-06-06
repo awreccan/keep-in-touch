@@ -184,6 +184,13 @@
   .pill.due-soon { background: color-mix(in srgb, var(--due-soon) 20%, transparent); color: var(--due-soon); }
   .pill.on-track { background: color-mix(in srgb, var(--on-track) 16%, transparent); color: var(--on-track); }
   .pill.snoozed { background: color-mix(in srgb, var(--text-dim) 18%, transparent); color: var(--text-dim); }
+  .cadence-suggest {
+    font-size: 0.8125rem; color: var(--text-dim); margin-top: 0.45rem; padding: 0.45rem 0.6rem;
+    border-radius: 9px; background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.5rem;
+  }
+  .cadence-suggest .cs-actions { display: flex; gap: 0.4rem; margin-left: auto; }
   .card-meta { font-size: 0.8125rem; color: var(--text-dim); margin-top: 0.25rem; }
   .card-actions { display: flex; gap: 0.4rem; margin-top: 0.6rem; flex-wrap: wrap; }
   .mini {
@@ -555,7 +562,7 @@
 "use strict";
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.12.0: snooze-until-date + reason, auto-resurface)
+   Keep In Touch — renderer (v1.13.0: adaptive cadence suggestions from meeting rhythm)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -1182,6 +1189,55 @@ function statusOf(item) {
   return { cls: "on-track", label: `In ${d}d`, order: d };
 }
 
+/* ---------- adaptive cadence suggestions (P3-F3) ---------- */
+function medianOf(nums) {
+  if (!nums.length) return null;
+  const s = nums.slice().sort((a, b) => a - b);   // numeric sort
+  const m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+const CADENCE_ANCHORS = [7, 14, 21, 30, 45, 60, 90, 180, 365];
+function roundCadence(raw) {
+  if (!isFinite(raw) || raw < 1) return 1;
+  let best = Math.round(raw), bestErr = Infinity;
+  for (const a of CADENCE_ANCHORS) {
+    const err = Math.abs(a - raw) / raw;
+    if (err <= 0.18 && err < bestErr) { best = a; bestErr = err; }
+  }
+  return Math.max(1, best);
+}
+// Suggest a cadence from the median gap between meetings, or null if not confident.
+function suggestCadence(item) {
+  const MIN_GAPS = 3, MAX_REL_MAD = 0.75, NEAR_EQ = 0.15;
+  const dates = histDates(item).slice().sort();   // ISO strings sort chronologically
+  if (dates.length < MIN_GAPS + 1) return null;
+  const gaps = [];
+  for (let i = 1; i < dates.length; i++) {
+    const g = daysBetween(parseISO(dates[i - 1]), parseISO(dates[i]));
+    if (isFinite(g) && g > 0) gaps.push(g);        // drop dupes/0-gaps/malformed
+  }
+  if (gaps.length < MIN_GAPS) return null;
+  const m = medianOf(gaps);
+  if (!isFinite(m) || m <= 0) return null;
+  const mad = medianOf(gaps.map(g => Math.abs(g - m)));
+  if (!isFinite(mad) || mad / m > MAX_REL_MAD) return null;
+  const sug = roundCadence(m);
+  const cur = item.cadenceDays || 30;
+  if (Math.abs(sug - cur) / cur <= NEAR_EQ) return null;   // no-nag gate
+  return sug;
+}
+function acceptSuggestion(id, value) {
+  const item = state.items[id]; if (!item) return;
+  item.cadenceDays = Math.max(1, parseInt(value, 10) || item.cadenceDays);
+  delete item.suggestDismissed;
+  save(); render();
+}
+function dismissSuggestion(id, value) {
+  const item = state.items[id]; if (!item) return;
+  item.suggestDismissed = parseInt(value, 10);
+  save(); render();
+}
+
 /* ---------- rendering ---------- */
 let showArchived = false;
 let toastTimer = null;        // archive-undo toast dismissal timer
@@ -1250,6 +1306,7 @@ function render() {
     const lm = lastMet(item);
     const remind = item.remindDays != null ? item.remindDays : state.globalRemindDays;
     const snoozed = isSnoozed(item);
+    const sug = (!showArchived && !snoozed) ? suggestCadence(item) : null;   // suppress in parked view
     // Snoozed people show a 💤 pill instead of the due/overdue status.
     const pill = snoozed
       ? `<span class="pill snoozed">💤 ${item.snoozedUntil}</span>`
@@ -1281,6 +1338,12 @@ function render() {
             ${lm ? "last met " + humanizeRelative(lm) + ' <span style="opacity:.7">(' + lm + ')</span>' : "no meetings logged"} ·
             ${item.history.length} logged · remind ${remind}d before${item.archived ? (item.archivedAt ? " · archived " + item.archivedAt : " · archived") : ""}${snoozed && item.snoozeReason ? " · 💤 " + escapeHtml(item.snoozeReason) : ""}
           </div>
+          ${sug != null && sug !== (item.suggestDismissed != null ? item.suggestDismissed : null) ? `<div class="cadence-suggest" role="note">
+            💡 You're meeting ~every ${sug}d, but cadence is ${item.cadenceDays}d.
+            <span class="cs-actions">
+              <button class="mini accent" data-act="sug-accept" data-sug="${sug}">Use ${sug}d</button>
+              <button class="mini" data-act="sug-dismiss" data-sug="${sug}">Dismiss</button>
+            </span></div>` : ""}
           <div class="card-actions">
             ${(item.archived || snoozed) ? "" : '<button class="mini accent" data-act="met">✔ Met today</button>'}
             <button class="mini" data-act="hist">History</button>
@@ -1572,6 +1635,8 @@ document.getElementById("list").addEventListener("click", e => {
   else if (act === "archive") { if (state.items[id].archived) restoreItem(id); else archiveItem(id); }
   else if (act === "snooze") openSnooze(id);
   else if (act === "unsnooze") unsnooze(id);
+  else if (act === "sug-accept") acceptSuggestion(id, btn.dataset.sug);
+  else if (act === "sug-dismiss") dismissSuggestion(id, btn.dataset.sug);
 });
 
 /* ---------- drag & drop (manual mode) ---------- */

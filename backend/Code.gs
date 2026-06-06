@@ -13,17 +13,18 @@
  * Optionally set a SHARED_TOKEN below and the renderer must send it.
  *
  * Columns (row 1 = headers, edited freely by the human):
- *   id | name | cadenceDays | lastMet | history | remindDays | archived | rank | snoozedUntil
+ *   id | name | cadenceDays | lastMet | history | remindDays | archived | rank | snoozedUntil | suggestDismissed
  *   - lastMet: convenience YYYY-MM-DD (max of history); the script keeps it in sync
  *   - history: comma-separated YYYY-MM-DD dates (append-only; the source of truth)
  *   - remindDays: blank = inherit global
  *   - archived: TRUE/FALSE
  *   - rank: integer for "My ranking" mode (blank ok)
  *   - snoozedUntil: YYYY-MM-DD; person is hidden + excluded from reminders until this date (blank = not snoozed)
+ *   - suggestDismissed: a cadence number the user rejected for the adaptive suggestion (blank = none)
  */
 
 var SHARED_TOKEN = ""; // optional; if set, renderer must send ?token=...
-var HEADERS = ["id", "name", "cadenceDays", "lastMet", "history", "remindDays", "archived", "rank", "snoozedUntil"];
+var HEADERS = ["id", "name", "cadenceDays", "lastMet", "history", "remindDays", "archived", "rank", "snoozedUntil", "suggestDismissed"];
 
 function doGet(e) {
   return handle(e, "GET");
@@ -86,6 +87,8 @@ function readState(sheet, project) {
     };
     var snoozedUntil = String(row[8] || "").trim();
     if (snoozedUntil) item.snoozedUntil = snoozedUntil;   // optional; absent if blank
+    var sd = row[9] === "" || row[9] === null || row[9] === undefined ? null : parseInt(row[9], 10);
+    if (sd != null && !isNaN(sd)) item.suggestDismissed = sd;   // cadence value the user rejected
     items[id] = item;
     var rank = row[7] === "" || row[7] === null ? null : parseInt(row[7], 10);
     if (rank !== null && !isNaN(rank)) ranked.push({ id: id, rank: rank });
@@ -120,7 +123,8 @@ function writeState(sheet, state) {
       it.remindDays == null ? "" : it.remindDays,
       it.archived ? true : false,
       rank === -1 ? "" : rank,
-      it.snoozedUntil || ""
+      it.snoozedUntil || "",
+      it.suggestDismissed == null ? "" : it.suggestDismissed
     ]);
   });
   sheet.clearContents();
