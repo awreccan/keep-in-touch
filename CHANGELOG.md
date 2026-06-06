@@ -2,6 +2,10 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.14.0 — 2026-06-05
+### Added
+- **History timeline (P3-F8).** The History view now opens with a compact sparkline of your meetings over time — each dot is a meeting, the line between them is color-coded green/amber/red by whether you kept pace with the cadence, and a dashed trailing segment shows time since the last meeting. A one-line summary calls out your longest on-cadence streak and longest gap. Hover any dot for the exact date and days since the previous meeting.
+
 ## v1.13.0 — 2026-06-05
 ### Added
 - **Adaptive cadence suggestions (P3-F3).** When your actual meeting rhythm with someone drifts from the cadence you set, the card gently suggests the real one — e.g. "💡 You're meeting ~every 30d, but cadence is 7d." Tap "Use 30d" to apply it or "Dismiss" to keep yours (it won't nag again unless your rhythm changes). Only appears with enough history (4+ meetings) and a steady rhythm — never for erratic or near-matching cadences. Suggestion math uses the median gap, so one outlier won't skew it.
