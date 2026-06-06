@@ -2,6 +2,10 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.12.0 — 2026-06-05
+### Added
+- **Snooze (P3-F7).** Temporarily hide someone until a date — handy when a person is on sabbatical, traveling, or you've agreed to reconnect later. Tap "Snooze…" on a card, pick 1 week / 1 month / 3 months or a specific date, optionally add a reason. Snoozed people drop out of your due/overdue list and the reminder email, show a 💤 badge in the "Show snoozed / archived" view, and **return to your active list automatically** when the date passes (or tap "Wake up" anytime).
+
 ## v1.11.0 — 2026-06-05
 ### Added
 - **Per-meeting notes (F2).** Each logged meeting can carry an optional note (e.g. "coffee, talked about the new role"). Add one when you log a meeting, or tap "+ note" / "Edit note" on any past entry in the History view. One-tap "✔ Met today" stays exactly as fast — notes are always optional. Notes are included in CSV export.

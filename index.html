@@ -183,6 +183,7 @@
   .pill.overdue { background: color-mix(in srgb, var(--overdue) 18%, transparent); color: var(--overdue); }
   .pill.due-soon { background: color-mix(in srgb, var(--due-soon) 20%, transparent); color: var(--due-soon); }
   .pill.on-track { background: color-mix(in srgb, var(--on-track) 16%, transparent); color: var(--on-track); }
+  .pill.snoozed { background: color-mix(in srgb, var(--text-dim) 18%, transparent); color: var(--text-dim); }
   .card-meta { font-size: 0.8125rem; color: var(--text-dim); margin-top: 0.25rem; }
   .card-actions { display: flex; gap: 0.4rem; margin-top: 0.6rem; flex-wrap: wrap; }
   .mini {
@@ -354,7 +355,7 @@
 <main class="wrap">
   <div class="toolbar">
     <button class="btn primary" id="addBtn">+ Add person</button>
-    <button class="btn" id="toggleArchived">Show archived</button>
+    <button class="btn" id="toggleArchived">Show snoozed / archived</button>
     <button class="btn" id="exportBtn">Export JSON</button>
     <button class="btn" id="exportCsvBtn">Export CSV</button>
   </div>
@@ -445,6 +446,32 @@
   </div>
 </div>
 
+<!-- Snooze modal (P3-F7): hide a person until a date, then auto-resurface -->
+<div class="modal-backdrop" id="snoozeModal">
+  <div class="modal">
+    <h2 id="snoozeTitle">Snooze</h2>
+    <div class="hint">Hide this person until a date. They drop out of due/overdue math and return automatically when the date passes. (Months ≈ 30 / 90 days.)</div>
+    <div class="row2">
+      <button class="btn" data-snooze="1w">1 week</button>
+      <button class="btn" data-snooze="1m">1 month</button>
+      <button class="btn" data-snooze="3m">3 months</button>
+    </div>
+    <label class="fld">Until a specific date
+      <input type="date" id="sz_date">
+    </label>
+    <label class="fld">Reason (optional)
+      <input type="text" id="sz_reason" placeholder="e.g. on sabbatical, new baby" autocomplete="off">
+    </label>
+    <div class="modal-actions" style="justify-content:space-between">
+      <button class="btn" id="sz_unsnooze">Unsnooze</button>
+      <span>
+        <button class="btn" id="snoozeCancel">Cancel</button>
+        <button class="btn primary" id="sz_apply">Snooze until date</button>
+      </span>
+    </div>
+  </div>
+</div>
+
 <!-- Settings modal -->
 <div class="modal-backdrop" id="settingsModal">
   <div class="modal">
@@ -528,7 +555,7 @@
 "use strict";
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.11.0: per-meeting notes + save-status indicator)
+   Keep In Touch — renderer (v1.12.0: snooze-until-date + reason, auto-resurface)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -925,7 +952,7 @@ async function switchProjectInPlace(name) {
   // reset the archived view (the in-place path keeps the module var; reload wouldn't)
   showArchived = false; hideToast(); document.body.classList.remove("archived-view");
   const tb = document.getElementById("toggleArchived");
-  tb.textContent = "Show archived"; tb.classList.remove("primary");
+  tb.textContent = "Show snoozed / archived"; tb.classList.remove("primary");
   // reflect the switch in the URL without navigating (keeps the gesture)
   const u = new URL(location.href);
   u.searchParams.set("project", PROJECT);
@@ -934,6 +961,7 @@ async function switchProjectInPlace(name) {
   showLoader("Loading " + PROJECT + "…");
   try {
     await loadProjectData({ canPrompt: true });
+    if (clearExpiredSnoozes()) save();   // wake people whose snooze elapsed
     syncModeButtons();
     render(); updateProjectBar();
   } finally { hideLoader(); }
@@ -1025,6 +1053,7 @@ async function init() {
   }
   try {
     await loadProjectData({ canPrompt: false });   // cold load: never prompt
+    if (clearExpiredSnoozes()) save();   // wake people whose snooze elapsed
     syncModeButtons();
     render(); updateProjectBar();
     if (hasExistingData()) { try { localStorage.setItem("keepInTouch.onboarded", "1"); } catch (e) {} }
@@ -1160,14 +1189,17 @@ let batchField = "cadence";   // "cadence" | "remind" — runtime only, not pers
 // Cadence values beyond the 1..30 row: the preset days over 30, plus 45 & 60.
 const BATCH_AXIS_PRESETS = [...new Set([45, 60, ...CADENCE_PRESETS.map(p => p.days).filter(d => d > 30)])].sort((a, b) => a - b);
 
+// A person is "parked" (out of the active list + due math) if archived OR
+// snoozed-until a future date. Snoozes self-expire by date (see isSnoozed).
+function isParked(i) { return i.archived || isSnoozed(i); }
 // Canonical ACTIVE set for ALL due math — ignores showArchived so the banner
-// never counts archived people, even while the archived view is open.
+// never counts parked people, even while the archived/snoozed view is open.
 function trackedItems() {
-  return Object.values(state.items).filter(i => !i.archived);
+  return Object.values(state.items).filter(i => !isParked(i));
 }
-// Display set — honors the archived toggle (active list vs archived view).
+// Display set — honors the toggle (active list vs archived/snoozed view).
 function visibleItems() {
-  return Object.values(state.items).filter(i => showArchived ? i.archived : !i.archived);
+  return Object.values(state.items).filter(i => showArchived ? isParked(i) : !isParked(i));
 }
 function sortedForMode() {
   let items = visibleItems();
@@ -1217,6 +1249,11 @@ function render() {
     li.draggable = draggable;
     const lm = lastMet(item);
     const remind = item.remindDays != null ? item.remindDays : state.globalRemindDays;
+    const snoozed = isSnoozed(item);
+    // Snoozed people show a 💤 pill instead of the due/overdue status.
+    const pill = snoozed
+      ? `<span class="pill snoozed">💤 ${item.snoozedUntil}</span>`
+      : `<span class="pill ${st.cls}">${st.label}</span>`;
     if (grid) {
       // dense card: rank number + name + status + key facts, no action buttons
       li.innerHTML = `
@@ -1225,7 +1262,7 @@ function render() {
           <div class="card-title">
             <span class="rank-num">${i + 1}</span>
             <span class="grid-name">${escapeHtml(item.name)}</span>
-            <span class="pill ${st.cls}">${st.label}</span>
+            ${pill}
           </div>
           <div class="card-meta">
             every ${item.cadenceDays}d · ${lm ? humanizeRelative(lm) : "never met"} · ${item.history.length} logged
@@ -1237,18 +1274,22 @@ function render() {
         <div class="card-body">
           <div class="card-title">
             <span>${escapeHtml(item.name)}</span>
-            <span class="pill ${st.cls}">${st.label}</span>
+            ${pill}
           </div>
           <div class="card-meta">
             Every ${item.cadenceDays}d ·
             ${lm ? "last met " + humanizeRelative(lm) + ' <span style="opacity:.7">(' + lm + ')</span>' : "no meetings logged"} ·
-            ${item.history.length} logged · remind ${remind}d before${item.archived ? (item.archivedAt ? " · archived " + item.archivedAt : " · archived") : ""}
+            ${item.history.length} logged · remind ${remind}d before${item.archived ? (item.archivedAt ? " · archived " + item.archivedAt : " · archived") : ""}${snoozed && item.snoozeReason ? " · 💤 " + escapeHtml(item.snoozeReason) : ""}
           </div>
           <div class="card-actions">
-            ${item.archived ? "" : '<button class="mini accent" data-act="met">✔ Met today</button>'}
+            ${(item.archived || snoozed) ? "" : '<button class="mini accent" data-act="met">✔ Met today</button>'}
             <button class="mini" data-act="hist">History</button>
             <button class="mini" data-act="edit">Edit</button>
-            <button class="mini" data-act="archive">${item.archived ? "Restore" : "Archive"}</button>
+            ${snoozed
+              ? '<button class="mini" data-act="unsnooze">Wake up</button>'
+              : (item.archived
+                  ? '<button class="mini" data-act="archive">Restore</button>'
+                  : '<button class="mini" data-act="snooze">Snooze…</button><button class="mini" data-act="archive">Archive</button>')}
           </div>
         </div>`;
     }
@@ -1276,6 +1317,51 @@ function renderBanner() {
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+/* ---------- snooze ("snooze until a date" + reason) (P3-F7) ---------- */
+let snoozeId = null;
+function isSnoozed(item) {
+  const u = item && item.snoozedUntil;
+  return !!u && u >= todayISO();   // date-only YYYY-MM-DD string compare
+}
+// Drop snoozes whose date has passed; returns true if it mutated state.
+function clearExpiredSnoozes() {
+  let changed = false;
+  for (const it of Object.values(state.items)) {
+    if (it.snoozedUntil && it.snoozedUntil < todayISO()) {
+      delete it.snoozedUntil; delete it.snoozeReason; changed = true;
+    }
+  }
+  return changed;
+}
+// today + N days as a local-date YYYY-MM-DD (no UTC drift).
+function presetSnoozeDate(key) {
+  const n = key === "1w" ? 7 : key === "1m" ? 30 : 90;
+  const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + n);
+  const z = x => String(x).padStart(2, "0");
+  return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
+}
+function openSnooze(id) {
+  snoozeId = id; const it = state.items[id];
+  document.getElementById("snoozeTitle").textContent = "Snooze · " + it.name;
+  document.getElementById("sz_date").value = it.snoozedUntil || todayISO();
+  document.getElementById("sz_reason").value = it.snoozeReason || "";
+  document.getElementById("sz_unsnooze").style.display = isSnoozed(it) ? "" : "none";
+  openModal("snoozeModal");
+}
+function applySnooze(id, dateISO) {
+  const it = state.items[id]; if (!it) return;
+  if (!dateISO || !parseISO(dateISO) || dateISO < todayISO()) { alert("Pick today or a future date."); return; }
+  it.snoozedUntil = dateISO;
+  const reason = document.getElementById("sz_reason").value.trim();
+  if (reason) it.snoozeReason = reason; else delete it.snoozeReason;
+  save(); render(); closeModal("snoozeModal");
+}
+function unsnooze(id) {
+  const it = state.items[id]; if (!it) return;
+  delete it.snoozedUntil; delete it.snoozeReason;
+  save(); render(); closeModal("snoozeModal");
 }
 
 /* ---------- archive / restore (F7) ---------- */
@@ -1484,6 +1570,8 @@ document.getElementById("list").addEventListener("click", e => {
   else if (act === "hist") openHistory(id);
   else if (act === "edit") openEdit(id);
   else if (act === "archive") { if (state.items[id].archived) restoreItem(id); else archiveItem(id); }
+  else if (act === "snooze") openSnooze(id);
+  else if (act === "unsnooze") unsnooze(id);
 });
 
 /* ---------- drag & drop (manual mode) ---------- */
@@ -1723,6 +1811,14 @@ document.getElementById("histList").addEventListener("keydown", e => {
 });
 document.getElementById("histClose").onclick = () => closeModal("histModal");
 
+/* snooze modal (P3-F7) */
+document.querySelectorAll("#snoozeModal [data-snooze]").forEach(b => {
+  b.onclick = () => { document.getElementById("sz_date").value = presetSnoozeDate(b.dataset.snooze); };
+});
+document.getElementById("sz_apply").onclick = () => applySnooze(snoozeId, document.getElementById("sz_date").value);
+document.getElementById("sz_unsnooze").onclick = () => unsnooze(snoozeId);
+document.getElementById("snoozeCancel").onclick = () => closeModal("snoozeModal");
+
 /* settings */
 document.getElementById("settingsBtn").onclick = () => {
   document.getElementById("s_remind").value = state.globalRemindDays;
@@ -1825,7 +1921,7 @@ document.getElementById("p_rename").onclick = async () => {
 /* archived toggle */
 document.getElementById("toggleArchived").onclick = e => {
   showArchived = !showArchived;
-  e.target.textContent = showArchived ? "Show active" : "Show archived";
+  e.target.textContent = showArchived ? "Show active" : "Show snoozed / archived";
   e.target.classList.toggle("primary", showArchived);
   hideToast();
   render();

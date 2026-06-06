@@ -13,16 +13,17 @@
  * Optionally set a SHARED_TOKEN below and the renderer must send it.
  *
  * Columns (row 1 = headers, edited freely by the human):
- *   id | name | cadenceDays | lastMet | history | remindDays | archived | rank
+ *   id | name | cadenceDays | lastMet | history | remindDays | archived | rank | snoozedUntil
  *   - lastMet: convenience YYYY-MM-DD (max of history); the script keeps it in sync
  *   - history: comma-separated YYYY-MM-DD dates (append-only; the source of truth)
  *   - remindDays: blank = inherit global
  *   - archived: TRUE/FALSE
  *   - rank: integer for "My ranking" mode (blank ok)
+ *   - snoozedUntil: YYYY-MM-DD; person is hidden + excluded from reminders until this date (blank = not snoozed)
  */
 
 var SHARED_TOKEN = ""; // optional; if set, renderer must send ?token=...
-var HEADERS = ["id", "name", "cadenceDays", "lastMet", "history", "remindDays", "archived", "rank"];
+var HEADERS = ["id", "name", "cadenceDays", "lastMet", "history", "remindDays", "archived", "rank", "snoozedUntil"];
 
 function doGet(e) {
   return handle(e, "GET");
@@ -83,6 +84,8 @@ function readState(sheet, project) {
       remindDays: row[5] === "" || row[5] === null ? null : parseInt(row[5], 10),
       archived: row[6] === true || String(row[6]).toUpperCase() === "TRUE"
     };
+    var snoozedUntil = String(row[8] || "").trim();
+    if (snoozedUntil) item.snoozedUntil = snoozedUntil;   // optional; absent if blank
     items[id] = item;
     var rank = row[7] === "" || row[7] === null ? null : parseInt(row[7], 10);
     if (rank !== null && !isNaN(rank)) ranked.push({ id: id, rank: rank });
@@ -116,7 +119,8 @@ function writeState(sheet, state) {
       history.join(", "),
       it.remindDays == null ? "" : it.remindDays,
       it.archived ? true : false,
-      rank === -1 ? "" : rank
+      rank === -1 ? "" : rank,
+      it.snoozedUntil || ""
     ]);
   });
   sheet.clearContents();
@@ -199,6 +203,7 @@ function collectDueForProject(state) {
   Object.keys(state.items).forEach(function (id) {
     var item = state.items[id];
     if (item.archived === true) return;
+    if (item.snoozedUntil && item.snoozedUntil >= todayStr) return;   // snoozed: skip until date passes
     var d = gasDaysUntilDue(item, todayStr);
     var eff = item.remindDays != null ? item.remindDays : global;
     if (isNaN(eff)) eff = global;   // garbage cell can't silently suppress a contact
