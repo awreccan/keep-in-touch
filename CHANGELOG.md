@@ -2,6 +2,22 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.27.0 — 2026-06-06
+### Added
+- **Reconnection wins.** When you log a meeting with someone you'd drifted past their cadence, the app gives a warm one-time cheer ("🌱 Reconnected with Alex — 4 weeks overdue. Nice one.") and keeps a calm "N reconnections this month" tally in the banner. It only ever celebrates — there's no streak to break and nothing turns red for falling behind.
+- **Smart drift nudge.** Beyond the per-person cadence, the app now learns your *actual* rhythm with someone and gently flags when you've slipped past it ("🫶 You usually see Sam ~every 30d — it's been 50d. Time for a catch-up?"). It stays quiet when your set cadence already matches your rhythm, and defers to the existing cadence-tuning suggestion when they disagree, so a card never shows two competing prompts.
+
+### Fixed (fifth-audit findings)
+- **Security: closed a stored cross-site-scripting hole.** A crafted value in the `snoozedUntil` Sheet cell could inject and run script when the snoozed person rendered. That field is now HTML-escaped on display and validated as a real date on load (non-dates are dropped), on every sync path.
+- **Daily reminder email worked for no one with meeting history.** A type mismatch made the digest throw and silently skip any project tab containing a contact who'd ever logged a meeting — i.e. essentially everyone. The email backend now reads meeting dates correctly. **Requires redeploying `backend/Code.gs`.**
+- **Snooze reasons and archive dates no longer vanish on sync.** These device-local notes were being dropped on a normal Sheet load once a person's edits had synced. Loads now preserve them while still letting cross-device edits win.
+- **Closed a sync race that could revert a just-saved edit.** If a reconnect-triggered refresh and a save overlapped, a stale read could undo the save. Reads now wait for an in-flight save to finish first.
+- **"Unsynced changes" is now clearer and self-recovering.** The message no longer says "back online" when you never went offline, it's announced to screen readers, and the app retries automatically when you refocus the tab or it becomes visible — not only on a network reconnect.
+- **Honest save status for file & browser storage.** If a save to a connected file is denied, or browser storage is full, the app now shows a persistent "⚠ not saved" warning instead of continuing to claim your data is saved.
+- **Time-of-day date correctness.** "Met today", snooze, and due dates now use your local calendar day everywhere, fixing an off-by-one that could occur late in the evening in western time zones.
+- **Offline app shell is more robust.** A failed update no longer wipes the last working offline copy of the app, and the service worker only swaps in a new shell once it's fully cached.
+- **Accessibility & keyboard.** Dialogs are now labelled for screen readers, focus returns to where you opened them, and you can press Escape to close or Enter to confirm.
+
 ## v1.26.0 — 2026-06-06
 ### Fixed (fourth-audit finding)
 - **An edit made while offline (or during a hiccup) is never silently lost.** If saving to the Sheet fails — you're offline, your Google sign-in lapsed, or the network blips — the change you made (a cadence, snooze, archive, rename, etc.) used to be quietly reverted to the Sheet's old value the next time the app opened. Now that change is protected: it sticks across reloads, the project bar shows a persistent **"⚠ unsynced changes — will retry when back online"** note, and the app automatically pushes it up the moment it reconnects (or the next time you open it online). Other people's edits and any contacts added on another device are still merged in correctly — your unsynced change doesn't overwrite them, and theirs don't overwrite yours.

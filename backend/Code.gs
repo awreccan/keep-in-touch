@@ -212,9 +212,13 @@ function gasEscapeHtml(s) {
   });
 }
 
-// Midnight (ms) of a YYYY-MM-DD string in the script's timezone.
+// Midnight (ms) of a YYYY-MM-DD string in the script's timezone. Tolerates a
+// {date,note} history OBJECT (readState builds objects) by extracting the date
+// first, so the email digest never throws on a real (history-bearing) contact.
 function gasDateMidnightMs(ymd) {
-  var parts = ymd.split("-");
+  var s = histDateOf(ymd);                 // accepts a string OR a {date} object
+  if (!s || typeof s !== "string") return NaN;
+  var parts = s.split("-");
   // Construct in UTC then treat as a plain calendar day; day-math below is
   // difference-based so a consistent basis for both dates is all that matters.
   return Date.UTC(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
@@ -223,7 +227,10 @@ function gasDateMidnightMs(ymd) {
 // Days until next-due for an item, or null if never met. Mirrors the frontend.
 function gasDaysUntilDue(item, todayStr) {
   if (!item.history || !item.history.length) return null;
-  var lm = item.history[item.history.length - 1];   // history is sorted ascending
+  // history entries are {date,note?} objects (readState); extract the date string
+  // before date math — feeding the raw object to gasDateMidnightMs used to throw
+  // and silently drop the whole tab from the digest.
+  var lm = histDateOf(item.history[item.history.length - 1]);   // history is sorted ascending
   var nextDueMs = gasDateMidnightMs(lm) + (item.cadenceDays || 30) * 86400000;
   return Math.round((nextDueMs - gasDateMidnightMs(todayStr)) / 86400000);
 }

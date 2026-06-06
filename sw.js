@@ -1,18 +1,27 @@
 /* Keep In Touch — service worker (app-shell cache only; never caches user data).
    CACHE is stamped from VERSION at release time. */
-const CACHE = "kit-shell-1.26.0";
+const CACHE = "kit-shell-1.27.0";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest",
   "./assets/icon-192.png", "./assets/icon-512.png", "./assets/icon.svg"];
 
 self.addEventListener("install", e => {
   self.skipWaiting();
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).catch(() => {}));
+  // Do NOT swallow addAll() rejection: if a shell fetch fails mid-deploy the new
+  // cache is left partial, and activate (below) would then wipe the last known-good
+  // cache — leaving the PWA unable to load offline. Letting install reject keeps the
+  // previous SW in control until the new shell caches cleanly (round-5 fix).
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)));
 });
 
 self.addEventListener("activate", e => {
   e.waitUntil((async () => {
-    const keys = await caches.keys();
-    await Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)));
+    // Only purge old caches once the NEW cache is verified complete (its index.html
+    // is present), so a partial install can never delete the working shell.
+    const newCacheOk = await caches.open(CACHE).then(c => c.match("./index.html")).then(Boolean).catch(() => false);
+    if (newCacheOk) {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)));
+    }
     await self.clients.claim();
   })());
 });

@@ -418,7 +418,7 @@
     <span class="src-dot local" id="srcDot"></span>
     Project: <button class="project-chip" id="projectChip" title="Switch or create a project">default ▾</button>
     <button class="link-btn" id="connectBtn">Connect file (desktop)</button>
-    <span id="srcLabel"></span>
+    <span id="srcLabel" role="status" aria-live="polite"></span>
     <span class="save-status" id="saveStatus" aria-live="polite"></span>
     <span class="app-version" id="appVersion" title="App version"></span>
   </div>
@@ -643,10 +643,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.26.0";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.27.0";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.26.0: unsynced-edit protection — failed/pending Sheet POST no longer silently reverts)
+   Keep In Touch — renderer (v1.27.0: audit-5 fixes (XSS, email blocker, local-field loss, race) + drift nudge + reconnection wins)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -761,6 +761,7 @@ let fileHandle = null;        // FileSystemFileHandle when connected to a projec
 let pendingHandle = null;     // stored handle whose permission lapsed; awaits a one-tap reconnect
 let source = "local";         // "sheet" | "file" | "local"
 let sheetSyncError = null;    // null | "auth" | "sync" — set when a Sheet read fails
+let localSaveFailed = false;  // file/local backend: a write failed (perm denied / quota) — persistent warning
 
 /* ---------- Google Sheet backend config ----------
    One Apps Script /exec URL serves ALL project tabs in the Sheet, so the
@@ -803,8 +804,11 @@ function setSheetCfg(cfg) {
 // remote-built baseline can't contain them, so including them would flag every
 // archived/snoozed person as perpetually dirty during an unsynced window and
 // re-open the round-3 cross-device shadow. A meaningful edit to those always
-// co-occurs with a persisted field (archived / snoozedUntil), so detection holds;
-// and a dirty id keeps its WHOLE local item, so the local-only fields survive too.
+// co-occurs with a persisted field (archived / snoozedUntil), so dirty-detection
+// still fires. These device-local fields are NOT synced; they survive a clean
+// steady-state load only because unionStates OVERLAYS remote scalars on top of the
+// local item (it does not replace it) and clears each only when its remote parent
+// scalar is gone — see the preferRemoteScalars branch in unionStates.
 const SCALAR_FIELDS = ["name", "cadenceDays", "remindDays", "archived", "snoozedUntil", "suggestDismissed"];
 function scalarsOf(item) { const o = {}; for (const f of SCALAR_FIELDS) if (item[f] !== undefined) o[f] = item[f]; return o; }
 function scalarsSnapshot(st) { const m = {}; for (const [id, it] of Object.entries((st && st.items) || {})) m[id] = scalarsOf(it); return m; }
@@ -874,6 +878,13 @@ async function fetchSheetJson(url, opts) {
   return data;
 }
 async function loadFromSheet(cfg) {
+  // Serialize against an in-flight POST (round-5 concurrency fix): if a save is
+  // mid-flight, a GET issued now could resolve with the PRE-save remote and then
+  // rebaseline dirtyIds/synced against stale data — silently reverting the just-saved
+  // scalar (the exact v1.26 class, re-opened on the online-retry path). Awaiting the
+  // pending POST first guarantees the GET reflects it. Swallow its error (the POST's
+  // own catch handles failure + marks unsynced); we only need it to have settled.
+  if (sheetSavePromise) { try { await sheetSavePromise; } catch (e) {} }
   const data = await fetchSheetJson(sheetEndpoint(cfg), { method: "GET" });
   const remote = mergeState(data);
   // UNION the remote into whatever is already loaded (the local cache, loaded by
@@ -901,6 +912,7 @@ async function loadFromSheet(cfg) {
   setSynced(PROJECT, scalarsSnapshot(remote));
 }
 let sheetSaveTimer = null;
+let sheetSavePromise = null;   // in-flight POST, so loadFromSheet can serialize against it
 // Prepare state for POST. History entries are kept as {date, note?} objects so a
 // v1.20+ backend persists notes (in its notes column); an OLDER backend safely
 // extracts just the date via histDateOf and ignores the note. Either way we
@@ -916,7 +928,16 @@ function sheetSafeState() {
   return out;
 }
 function scheduleSheetSave(cfg) {
-  localStorage.setItem(LS_KEY, JSON.stringify(state));  // offline cache keeps full objects (notes)
+  // Guard the offline-cache write against QuotaExceededError (round-5 fix): an
+  // unguarded throw here skipped the status update AND the debounce arm, so the edit
+  // never reached the Sheet and was silently lost. On quota failure we still proceed
+  // to schedule the POST (the Sheet is the durable store) but flag it unsynced.
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(state));  // offline cache keeps full objects (notes)
+  } catch (e) {
+    console.error("offline cache write failed (quota?); will still POST to Sheet", e);
+    markUnsynced(PROJECT);
+  }
   setSaveStatus("saving");
   if (sheetSaveTimer) clearTimeout(sheetSaveTimer);
   sheetSaveTimer = setTimeout(() => flushSheetSave(cfg), 800);
@@ -933,7 +954,7 @@ function flushSheetSave(cfg, proj = PROJECT) {
   const sentScalars = scalarsSnapshot(state);
   const endpoint = sheetEndpointFor(cfg, proj);
   // text/plain body avoids a CORS preflight Apps Script can't answer
-  return fetch(endpoint, { method: "POST", body: JSON.stringify(sheetSafeState()) })
+  const p = fetch(endpoint, { method: "POST", body: JSON.stringify(sheetSafeState()) })
     .then(async res => {
       if (!res.ok) throw new Error("HTTP " + res.status);
       // The backend returns {ok:true} on success or {error:...} on rejection
@@ -956,6 +977,11 @@ function flushSheetSave(cfg, proj = PROJECT) {
       markUnsynced(proj);
       if (proj === PROJECT) { setSaveStatus("failed"); updateProjectBar(); }
     });
+  // Publish the in-flight POST so loadFromSheet can await it before reading/rebaselining
+  // (round-5 concurrency fix). Clear only if WE are still the latest in-flight save.
+  sheetSavePromise = p;
+  p.finally(() => { if (sheetSavePromise === p) sheetSavePromise = null; });
+  return p;
 }
 
 /* ---------- IndexedDB: remember the connected file handle per project ---- */
@@ -1031,7 +1057,16 @@ function mergeState(raw) {
   // Flag a heal ONLY when an invalid token was dropped (real corruption), not on a
   // benign same-date dedup — so the auto-heal re-save never fires spuriously.
   const stats = { droppedInvalid: false };
-  for (const it of Object.values(merged.items || {})) it.history = normalizeHistory(it.history, stats);
+  for (const it of Object.values(merged.items || {})) {
+    it.history = normalizeHistory(it.history, stats);
+    // Validate snoozedUntil on ingest (primary XSS defense + integrity): the backend
+    // stores it as a raw cell with no date validation, so a poisoned/garbled value
+    // could otherwise inject markup at the render sink AND make a person look
+    // permanently snoozed. Drop anything that isn't a real YYYY-MM-DD date.
+    if (it.snoozedUntil != null && !/^\d{4}-\d{2}-\d{2}$/.test(String(it.snoozedUntil))) {
+      delete it.snoozedUntil; delete it.snoozeReason;
+    }
+  }
   if (stats.droppedInvalid) healedCorruptionOnLoad = true;
   return merged;
 }
@@ -1065,7 +1100,16 @@ function unionStates(local, remote, opts) {
       // wins here instead of being shadowed by this device's stale cache. History
       // is still unioned, never replaced — so nothing is dropped. (Skipped for
       // dirty ids, whose unsynced local scalar edit must not be reverted.)
-      out.items[id] = Object.assign(structuredClone(r), { history: mergedHistory });
+      //
+      // OVERLAY remote scalars ON TOP of the local item (not replace) so DEVICE-LOCAL
+      // fields the backend never stores (snoozeReason, archivedAt) survive a clean
+      // load. Remote scalars still win for everything the Sheet does carry. Then drop
+      // a local-only field when its remote PARENT scalar is gone (un-snoozed /
+      // un-archived elsewhere), so the annotation can't outlive the state it describes.
+      const merged = Object.assign(structuredClone(out.items[id]), structuredClone(r), { history: mergedHistory });
+      if (r.snoozedUntil == null) delete merged.snoozeReason;   // no longer snoozed remotely
+      if (!r.archived) delete merged.archivedAt;                 // no longer archived remotely
+      out.items[id] = merged;
     } else {
       // Connect/import: keep local scalars (preserve what's in front of the user /
       // push local up); only union history.
@@ -1132,13 +1176,15 @@ async function save() {
       localStorage.setItem(LS_KEY, JSON.stringify(state));
       if (!(await verifyPermission(fileHandle, true))) {
         console.warn("write permission denied; kept local mirror only");
-        setSaveStatus("failed");
+        // Persistent warning, not just a 4s toast: the bar must NOT keep claiming
+        // "saved to connected file" when the file write was denied (round-5 fix).
+        localSaveFailed = true; setSaveStatus("failed"); updateProjectBar();
         return;
       }
       const w = await fileHandle.createWritable();
       await w.write(JSON.stringify(state, null, 2));
       await w.close();
-      setSaveStatus("saved");
+      localSaveFailed = false; setSaveStatus("saved"); updateProjectBar();
       return;
     } catch (e) {
       console.error("file write failed, falling back to local", e);
@@ -1147,10 +1193,11 @@ async function save() {
   }
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(state));
-    setSaveStatus("saved");
+    localSaveFailed = false; setSaveStatus("saved"); updateProjectBar();
   } catch (e) {
     console.error("localStorage write failed", e);
-    setSaveStatus("failed");
+    // Genuine silent-data-loss case (nothing persisted): surface it persistently.
+    localSaveFailed = true; setSaveStatus("failed"); updateProjectBar();
   }
 }
 
@@ -1492,13 +1539,17 @@ function updateProjectBar() {
       : isUnsynced(PROJECT)
       // A scalar edit hasn't reached the Sheet yet (a POST failed). Persistent —
       // not a 4s toast — so the user knows; it auto-clears once a retry succeeds.
-      ? "· ⚠ unsynced changes — will retry when back online"
+      ? "· ⚠ unsynced changes — retrying…"
       : "· synced to Google Sheet";
   } else if (source === "file") {
-    label.textContent = "· saved to connected file";
+    label.textContent = localSaveFailed
+      ? "· ⚠ not saved — grant file access or use Export"
+      : "· saved to connected file";
     document.getElementById("connectBtn").textContent = "Change file…";
   } else {
-    label.textContent = "· saved in this browser";
+    label.textContent = localSaveFailed
+      ? "· ⚠ couldn't save — storage may be full (Export to be safe)"
+      : "· saved in this browser";
   }
   const info = document.getElementById("dataSourceInfo");
   info.innerHTML = supportsFS
@@ -1510,7 +1561,14 @@ function updateProjectBar() {
 
 /* ---------- date helpers ---------- */
 const MS_DAY = 86400000;
-function todayISO() { return new Date().toISOString().slice(0, 10); }
+// LOCAL calendar date as YYYY-MM-DD. Uses local getFullYear/Month/Date (NOT
+// toISOString, which is UTC) so it matches parseISO's local-midnight parse and
+// presetSnoozeDate's local construction. A UTC-based today caused off-by-one
+// "met today"/snooze/due dates in the evening west of UTC (round-5 fix).
+function todayISO() {
+  const d = new Date(); const z = x => String(x).padStart(2, "0");
+  return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
+}
 function parseISO(s) { return s ? new Date(s + "T00:00:00") : null; }
 function daysBetween(a, b) { return Math.round((b - a) / MS_DAY); }
 
@@ -1557,6 +1615,38 @@ function statusOf(item) {
   return { cls: "on-track", label: `In ${d}d`, order: d };
 }
 
+/* ---------- reconnection wins (roadmap v2 #3) ----------
+   Positive, growth-framed: celebrate reconnecting with someone you'd drifted
+   from. NEVER a streak that resets to zero or any "you lapsed" shaming — the
+   research flags guilt as the #1 churn cause. All derived on the fly from the
+   existing history + cadence; no new stored field, no backend.
+
+   A meeting at `metDate` is a "reconnection" if, JUST BEFORE that meeting, the
+   person was already overdue — i.e. the prior meeting + cadence had elapsed by
+   metDate. Computed purely from the prior history entry, so back-editing a date
+   recomputes consistently and never double-counts. */
+function priorMeetingBefore(item, metDate) {
+  let prev = null;
+  for (const d of histDates(item)) { if (d < metDate && (!prev || d > prev)) prev = d; }
+  return prev;
+}
+// Days overdue at metDate given the prior meeting (null = no prior / not overdue).
+function overdueDaysAt(item, metDate) {
+  const prev = priorMeetingBefore(item, metDate);
+  if (!prev) return null;                                  // first-ever meeting isn't a reconnection
+  const dueBy = daysBetween(parseISO(prev), parseISO(metDate)) - (item.cadenceDays || 30);
+  return dueBy > 0 ? dueBy : null;                         // positive ⇒ was overdue when you met
+}
+// Count of reconnections in the current calendar month, across all active people.
+function reconnectionsThisMonth() {
+  const ym = todayISO().slice(0, 7);                       // "YYYY-MM"
+  let n = 0;
+  for (const it of trackedItems()) {
+    for (const d of histDates(it)) { if (d.slice(0, 7) === ym && overdueDaysAt(it, d) != null) n++; }
+  }
+  return n;
+}
+
 /* ---------- adaptive cadence suggestions (P3-F3) ---------- */
 function medianOf(nums) {
   if (!nums.length) return null;
@@ -1593,6 +1683,45 @@ function suggestCadence(item) {
   const cur = item.cadenceDays || 30;
   if (Math.abs(sug - cur) / cur <= NEAR_EQ) return null;   // no-nag gate
   return sug;
+}
+// Observed median gap between meetings (the real rhythm), with the SAME confidence
+// gates as suggestCadence (>=3 gaps, MAD outlier rejection) — or null if not enough
+// signal. Shared so the drift nudge and the cadence suggestion agree on the rhythm.
+function observedMedianGap(item) {
+  const MIN_GAPS = 3, MAX_REL_MAD = 0.75;
+  const dates = histDates(item).slice().sort();
+  if (dates.length < MIN_GAPS + 1) return null;
+  const gaps = [];
+  for (let i = 1; i < dates.length; i++) {
+    const g = daysBetween(parseISO(dates[i - 1]), parseISO(dates[i]));
+    if (isFinite(g) && g > 0) gaps.push(g);
+  }
+  if (gaps.length < MIN_GAPS) return null;
+  const m = medianOf(gaps);
+  if (!isFinite(m) || m <= 0) return null;
+  const mad = medianOf(gaps.map(g => Math.abs(g - m)));
+  if (!isFinite(mad) || mad / m > MAX_REL_MAD) return null;
+  return m;
+}
+/* Smart drift nudge (roadmap v2 #2): when your real observed rhythm has slipped —
+   time since last meeting meaningfully exceeds the OBSERVED median gap — surface a
+   warm, relationship-aware nudge. Distinct from the cadence-change suggestion:
+   - cadence suggestion fires when the SET cadence disagrees with the rhythm.
+   - drift nudge fires when the set cadence already ≈ the rhythm (so there's nothing
+     to re-tune) yet you've still drifted past that rhythm right now.
+   Returns { observed, sinceLast } or null. Pure reuse of existing math — no schema. */
+function driftNudge(item) {
+  const DRIFT_MARGIN = 1.3;   // must be >30% past the observed rhythm to nudge
+  const m = observedMedianGap(item);
+  if (m == null) return null;
+  const lm = lastMet(item);
+  if (!lm) return null;
+  const sinceLast = daysBetween(parseISO(lm), parseISO(todayISO()));
+  if (sinceLast <= m * DRIFT_MARGIN) return null;     // still within the normal rhythm
+  // Precedence: if the set cadence disagrees with the rhythm, the cadence-change
+  // suggestion owns this card — defer to it to avoid two competing prompts.
+  if (suggestCadence(item) != null) return null;
+  return { observed: Math.round(m), sinceLast };
 }
 function acceptSuggestion(id, value) {
   const item = state.items[id]; if (!item) return;
@@ -1675,9 +1804,16 @@ function render() {
     const remind = item.remindDays != null ? item.remindDays : state.globalRemindDays;
     const snoozed = isSnoozed(item);
     const sug = (!showArchived && !snoozed) ? suggestCadence(item) : null;   // suppress in parked view
+    // Drift nudge shares the suggestion slot; its own gate defers to `sug` so the
+    // two never both show. Also suppressed in the parked (archived/snoozed) view.
+    const drift = (!showArchived && !snoozed) ? driftNudge(item) : null;
     // Snoozed people show a 💤 pill instead of the due/overdue status.
+    // escapeHtml(snoozedUntil): it's remote/human-authored (a Sheet cell) and the
+    // backend doesn't validate it, so an unescaped value here was a stored-XSS sink
+    // (the isSnoozed string-compare gate does NOT filter "<img onerror=…>"). Ingest
+    // validation in mergeState is the primary defense; this is belt-and-braces.
     const pill = snoozed
-      ? `<span class="pill snoozed">💤 ${item.snoozedUntil}</span>`
+      ? `<span class="pill snoozed">💤 ${escapeHtml(item.snoozedUntil)}</span>`
       : `<span class="pill ${st.cls}">${st.label}</span>`;
     if (grid) {
       // dense card: rank number + name + status + key facts, no action buttons
@@ -1711,7 +1847,9 @@ function render() {
             <span class="cs-actions">
               <button class="mini accent" data-act="sug-accept" data-sug="${sug}">Use ${sug}d</button>
               <button class="mini" data-act="sug-dismiss" data-sug="${sug}">Dismiss</button>
-            </span></div>` : ""}
+            </span></div>` : (drift ? `<div class="cadence-suggest" role="note">
+            🫶 You usually see ${escapeHtml(item.name)} ~every ${drift.observed}d — it's been ${drift.sinceLast}d. Time for a catch-up?
+            </div>` : "")}
           <div class="card-actions">
             ${(item.archived || snoozed) ? "" : '<button class="mini accent" data-act="met">✔ Met today</button>'}
             <button class="mini" data-act="hist">History</button>
@@ -1736,13 +1874,17 @@ function renderBanner() {
     const remind = i.remindDays != null ? i.remindDays : state.globalRemindDays;
     return d === null || d <= remind;
   });
+  // Growth-framed reconnection tally for the month (positive reward, never a
+  // reset-to-zero streak). Shown as a calm suffix; absent when there are none.
+  const recon = reconnectionsThisMonth();
+  const reconNote = recon > 0 ? ` · 🌱 ${recon} reconnection${recon === 1 ? "" : "s"} this month` : "";
   if (!due.length) {
     banner.className = "banner";
-    banner.textContent = "✓ Everyone's on track. Nice.";
+    banner.textContent = "✓ Everyone's on track. Nice." + reconNote;
   } else {
     banner.className = "banner alert";
     const names = due.map(i => i.name).slice(0, 4).join(", ");
-    banner.textContent = `⏰ ${due.length} due or overdue: ${names}${due.length > 4 ? "…" : ""}`;
+    banner.textContent = `⏰ ${due.length} due or overdue: ${names}${due.length > 4 ? "…" : ""}${reconNote}`;
   }
 }
 function escapeHtml(s) {
@@ -1910,10 +2052,24 @@ function logMeeting(id, dateISO, note) {
   if (!item) return;
   const n = (note || "").trim();
   const existing = item.history.find(h => h.date === dateISO);
+  // Detect a reconnection BEFORE we append (overdueDaysAt looks at prior entries).
+  // Only celebrate a genuinely-new meeting date, not a same-day note enrichment.
+  const overdueBy = existing ? null : overdueDaysAt(item, dateISO);
   if (existing) { if (n) existing.note = n; }
   else item.history.push(n ? { date: dateISO, note: n } : { date: dateISO });
   item.history.sort(byDateAsc);
   save(); render();
+  if (overdueBy != null) showReconnectToast(item.name, overdueBy);
+}
+// Warm, one-shot celebration when you reconnect with someone you'd drifted from.
+// Reuses #toast (aria-live polite). Growth-framed — never "you were late".
+function showReconnectToast(name, overdueDays) {
+  if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+  const ago = overdueDays >= 14 ? Math.round(overdueDays / 7) + " weeks" : overdueDays + " days";
+  const toast = document.getElementById("toast");
+  toast.innerHTML = `<span>🌱 Reconnected with ${escapeHtml(name)} — ${ago} overdue. Nice one.</span>`;
+  toast.classList.add("show");
+  toastTimer = setTimeout(hideToast, 6000);
 }
 // Set/clear a note on an existing meeting entry.
 function setMeetingNote(id, date, note) {
@@ -2116,8 +2272,49 @@ document.addEventListener("touchend", e => {
 });
 
 /* ---------- modals ---------- */
-function openModal(id) { document.getElementById(id).classList.add("open"); }
-function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+// Modal a11y (round-5 fixes #10/#11): label each dialog, restore focus to the
+// opener on close, and support Escape-to-close / Enter-to-submit. Roles/labels are
+// applied in JS (idempotent) so we don't have to touch all six markup blocks.
+let modalOpener = null;   // element focused before the topmost modal opened
+function openModal(id) {
+  const bd = document.getElementById(id);
+  const dialog = bd.querySelector(".modal");
+  if (dialog && !dialog.getAttribute("role")) {
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+    const h = dialog.querySelector("h2");
+    if (h) { if (!h.id) h.id = id + "-title"; dialog.setAttribute("aria-labelledby", h.id); }
+  }
+  modalOpener = document.activeElement;
+  bd.classList.add("open");
+  // Move focus into the dialog (first focusable) so keyboard/SR users land inside it.
+  const focusable = dialog && dialog.querySelector("input, select, textarea, button");
+  if (focusable) { try { focusable.focus(); } catch (e) {} }
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove("open");
+  // Restore focus to whatever opened the modal (falls back to nothing if it's gone).
+  if (modalOpener && typeof modalOpener.focus === "function") { try { modalOpener.focus(); } catch (e) {} }
+  modalOpener = null;
+}
+function topOpenModalId() {
+  const open = document.querySelectorAll(".modal-backdrop.open");
+  return open.length ? open[open.length - 1].id : null;   // last in DOM = topmost
+}
+// Global keyboard handling for modals: Escape closes the topmost; Enter in a text
+// INPUT (not textarea) triggers that modal's primary button.
+document.addEventListener("keydown", e => {
+  const id = topOpenModalId();
+  if (!id) return;
+  if (e.key === "Escape") {
+    e.preventDefault();
+    if (id === "onboardModal") finishOnboarding(); else closeModal(id);
+  } else if (e.key === "Enter" && e.target.tagName === "INPUT" && e.target.type !== "checkbox") {
+    const dialog = document.getElementById(id).querySelector(".modal");
+    const primary = dialog && (dialog.querySelector("button.primary") || dialog.querySelector("button.accent"));
+    if (primary) { e.preventDefault(); primary.click(); }
+  }
+});
 
 let editingId = null;
 function openEdit(id) {
@@ -2578,21 +2775,30 @@ document.getElementById("pwaHintClose").onclick = () => {
    loadProjectData (GET → union, shielding our dirty ids → its own on-load retry
    POSTs the merged state), never a blind local-only POST. No-op unless Sheet-bound
    and actually unsynced.
-   NOTE: we deliberately do NOT use a pagehide/visibilitychange sendBeacon flush
-   (the audit's suggestion #3). A beacon can't read a response and can't union
-   first, so it would blind-overwrite the Sheet with local-only state on tab close —
-   wiping any people a second device added that this device hasn't synced yet. The
-   edit is already durably cached + protected, and recovers on the next open or
-   `online` event, so the beacon's only gain (propagating before a reopen) isn't
-   worth that data-loss risk. */
+   NOTE: we deliberately do NOT use a sendBeacon flush (round-4 audit's suggestion #3).
+   A beacon can't read a response and can't union first, so it would blind-overwrite
+   the Sheet with local-only state on tab close — wiping any people a second device
+   added that this device hasn't synced yet. Instead we retry through the safe
+   union-first reload on `online`, `focus`, and `visibilitychange→visible` (the latter
+   two added in round-5 so a non-offline failure, which fires no `online` event, still
+   recovers automatically instead of leaving the indicator stuck). */
+let retrying = false;   // guard against overlapping retries (online + focus can co-fire)
 async function retryPendingSheetSave() {
-  if (source !== "sheet" || !hasUnsyncedEdits()) return;
+  if (retrying || source !== "sheet" || !hasUnsyncedEdits()) return;
   const cfg = getSheetCfg();
   if (!cfg) return;
+  retrying = true;
   try { await loadProjectData({ canPrompt: false }); render(); updateProjectBar(); }
-  catch (e) { console.error("online-retry reload failed", e); }
+  catch (e) { console.error("retry reload failed", e); }
+  finally { retrying = false; }
 }
 window.addEventListener("online", retryPendingSheetSave);
+// Also retry on tab refocus / becoming visible (round-5 fix): a failure that wasn't
+// an actual offline drop (HTTP 500, timeout, in-body {error} at 200) never fires an
+// `online` event, so without this the indicator could stay stuck indefinitely with
+// no automatic recovery until the next manual edit. These cover that gap cheaply.
+window.addEventListener("focus", retryPendingSheetSave);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") retryPendingSheetSave(); });
 
 init();
 // PWA setup runs after init, never blocking first paint.
