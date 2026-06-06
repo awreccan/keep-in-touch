@@ -2,6 +2,13 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.10.0 — 2026-06-05
+### Fixed
+- **Connecting a Google Sheet no longer wipes data you already have.** Previously, loading a list (e.g. from a file) and then connecting a Sheet for the first time would overwrite your list with the empty Sheet. Now connecting **merges** — your existing people are kept and pushed *up* to the Sheet, and if the Sheet already has data the two are unioned (meeting histories combined, never dropped). First connect = your data is saved to the Sheet, exactly as expected.
+
+### Added
+- **First-run onboarding.** New visitors are greeted with a friendly choice of where their list lives: **Sync with a Google Sheet** (recommended — keeps phone and computer in step, enables daily email reminders) or **Just use this device**. A collapsed "Advanced" option offers a local file on desktop. Returning users and anyone with existing data skip straight in. Settings now labels the Sheet as recommended for syncing.
+
 ## v1.9.0 — 2026-06-05
 ### Added
 - **Installable app (PWA).** When served over HTTPS (or localhost), Keep In Touch can be installed to your home screen / dock on Android, macOS, and iOS — it then opens like a native app with no browser chrome and works offline (the app shell is cached; your data still lives in your Sheet / file / browser). Android & desktop Chrome show an "⬇ Install app" button in the header; iOS shows a one-time "Add to Home Screen" hint. The status-bar color follows the in-app light/dark theme. All of this stays dormant on `file://` (where service workers aren't allowed), so nothing changes for local use.

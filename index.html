@@ -199,6 +199,26 @@
   .pwa-hint[hidden] { display: none; }
   .pwa-hint .link-btn { font-size: 1.1rem; line-height: 1; }
 
+  /* First-run onboarding (X-SHEET) */
+  .ob-choices { display: flex; flex-direction: column; gap: 0.6rem; margin: 0.6rem 0; }
+  .ob-card {
+    position: relative; text-align: left; display: flex; flex-direction: column; gap: 0.25rem;
+    padding: 0.9rem; border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--surface); color: var(--text); cursor: pointer; font-family: inherit;
+    transition: border-color .15s, background .15s, transform .1s;
+  }
+  .ob-card:hover { background: var(--surface-2); }
+  .ob-card:active { transform: scale(.99); }
+  .ob-card.recommended { border-color: var(--accent); border-width: 2px; }
+  .ob-card-title { font-size: 1rem; font-weight: 700; }
+  .ob-card-sub { font-size: 0.8125rem; color: var(--text-dim); line-height: 1.4; }
+  .ob-badge {
+    position: absolute; top: -0.6rem; right: 0.8rem; background: var(--accent); color: var(--accent-fg);
+    font-size: 0.6875rem; font-weight: 700; padding: 0.1rem 0.5rem; border-radius: 999px;
+  }
+  .ob-advanced { margin-top: 0.4rem; }
+  .ob-advanced #obAdvBody { margin-top: 0.5rem; }
+
   /* Batch "set X" mode: drag items onto a value axis to bulk-set cadence / remind-days */
   .batch-sub { display: flex; gap: 0.4rem; margin-bottom: 0.8rem; background: var(--surface-2); padding: 0.25rem; border-radius: 999px; max-width: 22rem; }
   .batch-sub button {
@@ -299,7 +319,7 @@
   <div class="project-bar">
     <span class="src-dot local" id="srcDot"></span>
     Project: <button class="project-chip" id="projectChip" title="Switch or create a project">default ▾</button>
-    <button class="link-btn" id="connectBtn">Connect project file…</button>
+    <button class="link-btn" id="connectBtn">Connect file (desktop)</button>
     <span id="srcLabel"></span>
   </div>
   <div class="modes">
@@ -412,8 +432,9 @@
     </label>
     <div class="hint">Per-person overrides take priority. This lead time drives the in-app "due soon" banner and — when the Google Sheet backend is connected — the daily email digest. To turn on the email, run <code>installDailyReminder()</code> once in the Apps Script editor (see backend/DEPLOY.md).</div>
     <hr style="border:none;border-top:1px solid var(--border);margin:0.9rem 0">
+    <div class="hint">Recommended for syncing phone ↔ computer — works in every browser.</div>
     <label class="fld">Google Sheet backend — Web app URL
-      <input type="url" id="s_sheet_url" placeholder="https://script.google.com/macros/s/…/exec">
+      <input type="url" id="s_sheet_url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off">
     </label>
     <label class="fld">Shared token (optional)
       <input type="text" id="s_sheet_token" placeholder="(leave blank if you didn't set one)" autocomplete="off">
@@ -433,6 +454,48 @@
   </div>
 </div>
 
+<!-- First-run onboarding: pick where your data lives (Sheet recommended for sync) -->
+<div class="modal-backdrop" id="onboardModal">
+  <div class="modal">
+    <h2>👋 Welcome to Keep In Touch</h2>
+    <div class="hint">Where should your list live? You can change this anytime in Settings.</div>
+    <div class="ob-choices" id="obChoices">
+      <button class="ob-card recommended" id="obSheetBtn">
+        <span class="ob-badge">Recommended</span>
+        <span class="ob-card-title">☁️ Sync with a Google Sheet</span>
+        <span class="ob-card-sub">Use it on your phone and computer — your list stays in step everywhere, and you get optional daily email reminders. One-time setup.</span>
+      </button>
+      <button class="ob-card" id="obLocalBtn">
+        <span class="ob-card-title">📱 Just use this device</span>
+        <span class="ob-card-sub">Saved in this browser only. Great to start fast — you can connect a Sheet later to sync.</span>
+      </button>
+    </div>
+    <div class="ob-sheet-step" id="obSheetStep" hidden>
+      <div class="hint">Paste your Apps Script Web app URL. Don't have one yet? It's a 5-minute one-time setup — see backend/DEPLOY.md.</div>
+      <label class="fld">Web app URL
+        <input type="url" id="ob_sheet_url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off">
+      </label>
+      <label class="fld">Shared token (optional)
+        <input type="text" id="ob_sheet_token" placeholder="(leave blank if you didn't set one)" autocomplete="off">
+      </label>
+      <div class="modal-actions" style="justify-content:space-between">
+        <button class="btn" id="obSheetBack">← Back</button>
+        <button class="btn primary" id="obSheetConnect">Connect &amp; sync</button>
+      </div>
+    </div>
+    <div class="ob-advanced" id="obAdvanced">
+      <button class="link-btn" id="obAdvToggle">Advanced: connect a local file (desktop)</button>
+      <div id="obAdvBody" hidden>
+        <div class="hint">Stores your list in a <code>.json</code> file you pick. Desktop Chromium only — doesn't sync across devices.</div>
+        <button class="btn" id="obConnectFile">Connect a file…</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="link-btn" id="obSkip">Skip — decide later</button>
+    </div>
+  </div>
+</div>
+
 <!-- iOS add-to-home-screen hint (iOS has no install prompt API) -->
 <div class="pwa-hint" id="pwaHint" hidden>
   <span>Install: tap Share ⬆ then "Add to Home Screen"</span>
@@ -443,7 +506,7 @@
 "use strict";
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.9.0: installable PWA — manifest, service worker, install UI)
+   Keep In Touch — renderer (v1.10.0: first-run onboarding + merge-on-connect (no data loss))
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -622,6 +685,40 @@ function mergeState(raw) {
   return Object.assign(structuredClone(DEFAULT_STATE), parsed, { project: PROJECT });
 }
 
+/* Union two states without losing data — used when CONNECTING a Sheet so the
+   data already in the app is pushed UP, never wiped by an empty/sparse Sheet.
+   - items: union by id; for an id in both, keep `local` scalar fields but UNION
+     the meeting histories (history is the append-only source of truth).
+   - manualOrder: local order first, then any remote-only ids appended.
+   - globalRemindDays / mode: prefer local.
+   With an empty remote (first connect) the result equals local exactly. */
+function unionStates(local, remote) {
+  const out = structuredClone(local);
+  const rItems = (remote && remote.items) || {};
+  for (const id of Object.keys(rItems)) {
+    const r = rItems[id];
+    if (!out.items[id]) { out.items[id] = structuredClone(r); continue; }
+    // merge histories by their date (works for string or {date} entries)
+    const seen = new Set(), merged = [];
+    for (const e of [...(out.items[id].history || []), ...(r.history || [])]) {
+      const key = typeof e === "string" ? e : (e && e.date) || "";
+      if (seen.has(key)) continue; seen.add(key); merged.push(e);
+    }
+    merged.sort((a, b) => {
+      const da = typeof a === "string" ? a : (a && a.date) || "";
+      const db = typeof b === "string" ? b : (b && b.date) || "";
+      return da.localeCompare(db);
+    });
+    out.items[id].history = merged;
+  }
+  const order = (local.manualOrder || []).slice();
+  for (const id of (remote && remote.manualOrder) || []) {
+    if (!order.includes(id) && out.items[id]) order.push(id);
+  }
+  out.manualOrder = order;
+  return out;
+}
+
 async function loadFromFile(handle) {
   const file = await handle.getFile();
   const text = (await file.text()).trim();
@@ -785,6 +882,62 @@ function shouldOpenPickerOnStart() {
   return true;   // empty, unbound default → greet with the picker (also the create-project UI)
 }
 
+/* ---------- first-run onboarding (X-SHEET) ---------- */
+let onboardingDone = false;   // in-session guard (covers localStorage write failures)
+// True if this browser already has a Keep In Touch footprint → skip onboarding.
+function hasExistingData() {
+  if (getRegistry().some(n => n !== "default")) return true;   // a non-default project exists
+  if (Object.keys(state.items).length) return true;            // current project has people
+  if (source !== "local") return true;                         // bound to sheet/file
+  if (pendingHandle) return true;                              // lapsed file grant
+  return false;
+}
+function shouldOnboard() {
+  return !onboardingDone
+    && !localStorage.getItem("keepInTouch.onboarded")
+    && PROJECT === "default"
+    && source === "local"
+    && !pendingHandle
+    && !hasExistingData();
+}
+function openOnboarding() {
+  document.getElementById("obChoices").hidden = false;
+  document.getElementById("obSheetStep").hidden = true;
+  document.getElementById("obAdvBody").hidden = true;
+  document.getElementById("obAdvanced").hidden = !supportsFS;   // no file path on Safari/Android
+  openModal("onboardModal");
+}
+function finishOnboarding() {
+  onboardingDone = true;
+  try { localStorage.setItem("keepInTouch.onboarded", "1"); } catch (e) {}
+  closeModal("onboardModal");
+  render(); updateProjectBar();
+}
+// Connect a Sheet backend. Throws on failure; caller owns hideLoader/alert.
+// MERGES the data already in the app with whatever the Sheet holds and pushes
+// the union UP — so connecting for the first time SAVES your existing list to
+// the Sheet instead of being overwritten by an empty Sheet (data-loss bug).
+async function connectSheet(url, token) {
+  const cfg = { url, token: token || null };
+  showLoader("Connecting to Google Sheet…");
+  // Fetch the remote WITHOUT clobbering the in-memory state.
+  const res = await fetch(sheetEndpoint(cfg), { method: "GET" });
+  const data = await res.json();
+  if (data && data.error) throw new Error(data.error);   // verify before committing
+  state = unionStates(state, mergeState(data));           // local data preserved + pushed up
+  source = "sheet";
+  setSheetCfg(cfg);
+  await save();                                           // routes to scheduleSheetSave
+  render(); updateProjectBar();
+}
+async function onboardConnectSheet() {
+  const url = document.getElementById("ob_sheet_url").value.trim();
+  const token = document.getElementById("ob_sheet_token").value.trim();
+  if (!url) { alert("Paste the Web app URL first."); return; }
+  try { await connectSheet(url, token); hideLoader(); finishOnboarding(); }
+  catch (e) { hideLoader(); alert("Could not connect: " + e.message); }
+}
+
 async function init() {
   populateCadencePresets();   // fill the Add/Edit cadence select before the modal can open
   applyTheme(localStorage.getItem("keepInTouch.theme") || "light");
@@ -801,7 +954,9 @@ async function init() {
     await loadProjectData({ canPrompt: false });   // cold load: never prompt
     syncModeButtons();
     render(); updateProjectBar();
-    if (shouldOpenPickerOnStart()) { renderProjList(); openModal("projectModal"); }
+    if (hasExistingData()) { try { localStorage.setItem("keepInTouch.onboarded", "1"); } catch (e) {} }
+    if (shouldOnboard()) openOnboarding();
+    else if (shouldOpenPickerOnStart()) { renderProjList(); openModal("projectModal"); }
   } finally {
     hideLoader();
   }
@@ -1467,16 +1622,8 @@ document.getElementById("s_sheet_connect").onclick = async () => {
   const url = document.getElementById("s_sheet_url").value.trim();
   const token = document.getElementById("s_sheet_token").value.trim();
   if (!url) { alert("Paste the Web app URL first."); return; }
-  const cfg = { url, token: token || null };
-  try {
-    showLoader("Connecting to Google Sheet…");
-    await loadFromSheet(cfg);     // verify it works before saving config
-    setSheetCfg(cfg);
-    await save();                 // push current/merged state up
-    render(); updateProjectBar();
-    hideLoader();
-    alert("Connected to Google Sheet. Changes now autosave there.");
-  } catch (e) { hideLoader(); alert("Could not connect: " + e.message); }
+  try { await connectSheet(url, token); hideLoader(); alert("Connected to Google Sheet. Changes now autosave there."); }
+  catch (e) { hideLoader(); alert("Could not connect: " + e.message); }
 };
 document.getElementById("s_sheet_disconnect").onclick = () => {
   setSheetCfg(null);
@@ -1580,8 +1727,36 @@ document.querySelectorAll(".mode-btn").forEach(b => {
 });
 /* close modal on backdrop click */
 document.querySelectorAll(".modal-backdrop").forEach(bd => {
-  bd.addEventListener("click", e => { if (e.target === bd) bd.classList.remove("open"); });
+  bd.addEventListener("click", e => {
+    if (e.target !== bd) return;
+    // Closing onboarding by backdrop must record the dismissal, not just hide it.
+    if (bd.id === "onboardModal") finishOnboarding();
+    else bd.classList.remove("open");
+  });
 });
+
+/* ---------- first-run onboarding wiring (X-SHEET) ---------- */
+document.getElementById("obSheetBtn").onclick = () => {
+  document.getElementById("obChoices").hidden = true;
+  document.getElementById("obAdvBody").hidden = true;
+  document.getElementById("obSheetStep").hidden = false;
+  document.getElementById("ob_sheet_url").focus();
+};
+document.getElementById("obSheetBack").onclick = () => {
+  document.getElementById("obChoices").hidden = false;
+  document.getElementById("obSheetStep").hidden = true;
+};
+document.getElementById("obLocalBtn").onclick = () => finishOnboarding();   // source already local
+document.getElementById("obSheetConnect").onclick = onboardConnectSheet;
+document.getElementById("obAdvToggle").onclick = () => {
+  const body = document.getElementById("obAdvBody");
+  body.hidden = !body.hidden;
+};
+document.getElementById("obConnectFile").onclick = async () => {
+  await connectProjectFile();             // swallows AbortError on cancel
+  if (source === "file") finishOnboarding();   // only dismiss if a file actually connected
+};
+document.getElementById("obSkip").onclick = () => finishOnboarding();
 
 /* ---------- PWA: install + offline shell (X-PWA) ----------
    All of this no-ops on file:// (a service worker needs https or localhost).
