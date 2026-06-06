@@ -1,0 +1,1637 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Keep In Touch</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👋</text></svg>">
+<!-- PWA: installable on Android + macOS/iOS so it lives as an app icon, opens prompt-free.
+     All PWA code no-ops on file:// (SW needs https or localhost). -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2f6df0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Keep In Touch">
+<link rel="apple-touch-icon" href="assets/icon-192.png">
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --surface-2: #eef1f5;
+    --border: #d9dee5;
+    --text: #1b2330;
+    --text-dim: #677488;
+    --accent: #2f6df0;
+    --accent-fg: #ffffff;
+    --overdue: #e0463f;
+    --due-soon: #c87b13;
+    --on-track: #1f9d57;
+    --shadow: 0 1px 2px rgba(20,30,50,.06), 0 4px 14px rgba(20,30,50,.05);
+    --radius: 12px;
+    --maxw: 640px;
+  }
+  html[data-theme="dark"] {
+    --bg: #0f1419;
+    --surface: #1a2129;
+    --surface-2: #232c36;
+    --border: #2e3a47;
+    --text: #e6edf3;
+    --text-dim: #8b97a3;
+    --accent: #4a9eff;
+    --accent-fg: #07101d;
+    --overdue: #ff6b6b;
+    --due-soon: #ffb74a;
+    --on-track: #4ade80;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html { font-size: 100%; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.45;
+    font-size: 1rem;
+    transition: background .2s, color .2s;
+  }
+  .wrap { max-width: var(--maxw); margin: 0 auto; }
+
+  header {
+    position: sticky; top: 0; z-index: 10;
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: saturate(1.4) blur(8px);
+    border-bottom: 1px solid var(--border);
+  }
+  .header-inner { padding: 0.9rem 1rem; }
+  .header-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+  h1 { font-size: 1.25rem; margin: 0; font-weight: 700; letter-spacing: -0.01em; display: flex; gap: 0.4rem; align-items: center; }
+  .h-tools { display: flex; gap: 0.4rem; }
+
+  .icon-btn {
+    width: 2.2rem; height: 2.2rem; display: grid; place-items: center;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    border-radius: 50%; cursor: pointer; font-size: 1.05rem; line-height: 1;
+    transition: background .15s, transform .1s;
+  }
+  .icon-btn:hover { background: var(--surface-2); }
+  .icon-btn:active { transform: scale(.92); }
+
+  .project-bar {
+    font-size: 0.875rem; color: var(--text-dim); margin-top: 0.6rem;
+    display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;
+  }
+  .project-chip {
+    font-weight: 600; color: var(--text); background: var(--surface-2);
+    padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.8125rem;
+    border: 1px solid var(--border); cursor: pointer; font-family: inherit;
+  }
+  .project-chip:hover { background: var(--border); }
+  .proj-list { list-style: none; padding: 0; margin: 0 0 0.8rem; max-height: 13rem; overflow-y: auto; }
+  .proj-list li {
+    display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;
+    padding: 0.5rem 0.6rem; border: 1px solid var(--border); border-radius: 9px; margin-bottom: 0.4rem;
+    cursor: pointer; font-size: 0.9375rem;
+  }
+  .proj-list li:hover { background: var(--surface-2); }
+  .proj-list li.current { border-color: var(--accent); }
+  .proj-list .badge { font-size: 0.6875rem; color: var(--text-dim); font-weight: 600; }
+  .src-dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; display: inline-block; }
+  .src-dot.file { background: var(--on-track); }
+  .src-dot.sheet { background: var(--accent); }
+  .src-dot.local { background: var(--due-soon); }
+  .link-btn { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.8125rem; padding: 0; }
+
+  .modes { display: flex; gap: 0.4rem; margin-top: 0.7rem; background: var(--surface-2); padding: 0.25rem; border-radius: 999px; }
+  .mode-btn {
+    flex: 1; padding: 0.5rem; border: none; background: transparent;
+    color: var(--text-dim); border-radius: 999px; font-size: 0.875rem; cursor: pointer; font-weight: 600;
+    transition: background .15s, color .15s;
+  }
+  .mode-btn.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+
+  .banner {
+    margin: 0.7rem 1rem 0; padding: 0.6rem 0.85rem; border-radius: var(--radius);
+    background: var(--surface-2); font-size: 0.875rem; color: var(--text-dim);
+  }
+  .banner.alert { color: var(--due-soon); background: color-mix(in srgb, var(--due-soon) 12%, var(--surface)); }
+
+  main { padding: 0.9rem 1rem 5rem; }
+
+  .toolbar { display: flex; gap: 0.5rem; margin-bottom: 0.9rem; flex-wrap: wrap; }
+  button.btn {
+    padding: 0.55rem 0.85rem; border: 1px solid var(--border); background: var(--surface);
+    color: var(--text); border-radius: 10px; font-size: 0.875rem; cursor: pointer; font-weight: 600;
+    box-shadow: var(--shadow); transition: background .15s, transform .1s;
+  }
+  button.btn:hover { background: var(--surface-2); }
+  button.btn:active { transform: scale(.97); }
+  button.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+
+  ul.list { list-style: none; margin: 0; padding: 0; }
+  /* Grid rank mode: widen the page and lay cards out in responsive columns */
+  body.grid-mode .wrap { max-width: 1200px; }
+  ul.list.grid {
+    display: grid; gap: 0.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  }
+  ul.list.grid li.card { margin-bottom: 0; }
+  li.card.compact { padding: 0.55rem 0.65rem; gap: 0.4rem; }
+  .compact .card-meta { font-size: 0.75rem; margin-top: 0.15rem; }
+  .compact .card-title { gap: 0.35rem; }
+  .rank-num {
+    flex: none; width: 1.4rem; height: 1.4rem; display: inline-grid; place-items: center;
+    background: var(--surface-2); color: var(--text-dim); border-radius: 50%;
+    font-size: 0.75rem; font-weight: 700;
+  }
+  .grid-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  li.card {
+    background: var(--surface); border: 1px solid var(--border); border-left-width: 4px;
+    border-radius: var(--radius); padding: 0.85rem; margin-bottom: 0.65rem;
+    display: flex; align-items: flex-start; gap: 0.65rem; box-shadow: var(--shadow);
+    transition: transform .1s, box-shadow .15s;
+  }
+  li.card.dragging { opacity: 0.45; }
+  li.card.drag-over { box-shadow: 0 -3px 0 var(--accent), var(--shadow); }
+  .card.overdue { border-left-color: var(--overdue); }
+  .card.due-soon { border-left-color: var(--due-soon); }
+  .card.on-track { border-left-color: var(--on-track); }
+
+  .handle {
+    cursor: grab; color: var(--text-dim); font-size: 1.3rem; line-height: 1;
+    padding: 0.1rem 0.2rem; touch-action: none; user-select: none;
+  }
+  .handle:active { cursor: grabbing; }
+  .card-body { flex: 1; min-width: 0; }
+  .card-title { font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+  .pill {
+    font-size: 0.75rem; padding: 0.1rem 0.5rem; border-radius: 999px; font-weight: 700; white-space: nowrap;
+  }
+  .pill.overdue { background: color-mix(in srgb, var(--overdue) 18%, transparent); color: var(--overdue); }
+  .pill.due-soon { background: color-mix(in srgb, var(--due-soon) 20%, transparent); color: var(--due-soon); }
+  .pill.on-track { background: color-mix(in srgb, var(--on-track) 16%, transparent); color: var(--on-track); }
+  .card-meta { font-size: 0.8125rem; color: var(--text-dim); margin-top: 0.25rem; }
+  .card-actions { display: flex; gap: 0.4rem; margin-top: 0.6rem; flex-wrap: wrap; }
+  .mini {
+    font-size: 0.8125rem; padding: 0.3rem 0.6rem; border: 1px solid var(--border);
+    background: transparent; color: var(--text-dim); border-radius: 8px; cursor: pointer; font-weight: 600;
+  }
+  .mini:hover { color: var(--text); border-color: var(--text-dim); }
+  .mini.accent { color: var(--accent); border-color: var(--accent); }
+
+  .empty { text-align: center; color: var(--text-dim); padding: 3rem 1.25rem; font-size: 0.9375rem; }
+
+  /* Archive undo toast + parked-card styling (F7) */
+  .toast { margin: 0.7rem 0 0; padding: 0.6rem 0.85rem; border-radius: var(--radius); background: var(--surface-2); color: var(--text); font-size: 0.875rem; display: none; align-items: center; justify-content: space-between; gap: 0.5rem; }
+  .toast.show { display: flex; }
+  .toast button { background: none; border: none; color: var(--accent); font-weight: 700; cursor: pointer; font-size: 0.875rem; font-family: inherit; }
+  body.archived-view li.card { opacity: 0.92; }
+
+  /* PWA install affordances (X-PWA) */
+  #installBtn[hidden] { display: none; }
+  .pwa-hint {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 90;
+    background: var(--surface); border-top: 1px solid var(--border); color: var(--text-dim);
+    padding: 0.7rem 1rem; font-size: 0.8125rem; display: flex; gap: 0.6rem;
+    align-items: center; justify-content: center;
+  }
+  .pwa-hint[hidden] { display: none; }
+  .pwa-hint .link-btn { font-size: 1.1rem; line-height: 1; }
+
+  /* Batch "set X" mode: drag items onto a value axis to bulk-set cadence / remind-days */
+  .batch-sub { display: flex; gap: 0.4rem; margin-bottom: 0.8rem; background: var(--surface-2); padding: 0.25rem; border-radius: 999px; max-width: 22rem; }
+  .batch-sub button {
+    flex: 1; padding: 0.45rem; border: none; background: transparent; color: var(--text-dim);
+    border-radius: 999px; font-size: 0.8125rem; cursor: pointer; font-weight: 600;
+  }
+  .batch-sub button.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+  .batch-hint { font-size: 0.8125rem; color: var(--text-dim); margin: 0 0 0.7rem; }
+  .axis-label { font-size: 0.75rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; margin: 0.2rem 0 0.4rem; }
+  .axis { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 1.1rem; }
+  .axis-val {
+    min-width: 2.1rem; height: 2.1rem; padding: 0 0.4rem; display: inline-flex; align-items: center; justify-content: center;
+    gap: 0.2rem; border: 1px dashed var(--border); border-radius: 9px; background: var(--surface);
+    font-size: 0.8125rem; font-weight: 700; color: var(--text); cursor: default; transition: background .12s, border-color .12s, transform .1s;
+  }
+  .axis-val.preset { border-style: solid; color: var(--text-dim); }
+  .axis-val .cnt { font-size: 0.65rem; font-weight: 700; color: var(--accent-fg); background: var(--accent); border-radius: 999px; padding: 0 0.3rem; min-width: 1rem; text-align: center; }
+  .axis-val.drag-over { background: color-mix(in srgb, var(--accent) 18%, var(--surface)); border-color: var(--accent); border-style: solid; transform: scale(1.08); }
+  .pool { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .pool-item {
+    display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.45rem 0.7rem;
+    border: 1px solid var(--border); border-radius: 999px; background: var(--surface); box-shadow: var(--shadow);
+    cursor: grab; font-size: 0.875rem; font-weight: 600; touch-action: none; user-select: none;
+  }
+  .pool-item:active { cursor: grabbing; }
+  .pool-item.dragging { opacity: 0.45; }
+  .pool-item .val { font-size: 0.75rem; font-weight: 700; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); border-radius: 999px; padding: 0.05rem 0.45rem; }
+  .pool-item.flash { animation: poolflash .6s ease; }
+  @keyframes poolflash { 0% { background: color-mix(in srgb, var(--on-track) 35%, var(--surface)); } 100% { background: var(--surface); } }
+
+  /* Modal */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(10,15,25,.5); display: none;
+    align-items: center; justify-content: center; z-index: 100; padding: 1rem;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 1.25rem; width: 100%; max-width: 27rem; max-height: 90vh; overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(10,15,25,.35);
+  }
+  .modal h2 { margin: 0 0 0.9rem; font-size: 1.1rem; }
+  label.fld { display: block; margin-bottom: 0.8rem; font-size: 0.8125rem; color: var(--text-dim); font-weight: 600; }
+  label.fld input, label.fld select {
+    width: 100%; margin-top: 0.3rem; padding: 0.6rem; background: var(--bg);
+    border: 1px solid var(--border); color: var(--text); border-radius: 9px; font-size: 1rem; font-weight: 500;
+  }
+  .modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.5rem; }
+  .hist-list { list-style: none; padding: 0; margin: 0.5rem 0 0; max-height: 13rem; overflow-y: auto; }
+  .hist-list li {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.4rem 0; border-bottom: 1px solid var(--border); font-size: 0.875rem;
+  }
+  .hist-list li .hist-row-actions { display: flex; gap: 0.35rem; }
+  .hist-edit-input { padding: 0.3rem 0.4rem; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 7px; font-size: 0.875rem; font-weight: 600; }
+  .row2 { display: flex; gap: 0.5rem; }
+  .row2 > * { flex: 1; }
+  .hint { font-size: 0.75rem; color: var(--text-dim); margin: -0.4rem 0 0.8rem; line-height: 1.4; }
+  .cadence-custom { display: none; }
+  .cadence-custom.open { display: block; }
+
+  /* Loading overlay */
+  .loader {
+    position: fixed; inset: 0; z-index: 200; display: none;
+    align-items: center; justify-content: center; flex-direction: column; gap: 1rem;
+    background: var(--bg); color: var(--text-dim);
+  }
+  .loader.show { display: flex; }
+  .spinner {
+    width: 2.4rem; height: 2.4rem; border-radius: 50%;
+    border: 0.28rem solid var(--surface-2); border-top-color: var(--accent);
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loader-msg { font-size: 0.9375rem; }
+  /* skeleton cards behind the overlay so first paint isn't an empty void */
+  .skeleton { height: 4.5rem; border-radius: var(--radius); margin-bottom: 0.65rem;
+    background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 37%, var(--surface) 63%);
+    background-size: 400% 100%; animation: shimmer 1.4s ease infinite; }
+  @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+</style>
+</head>
+<body>
+<div class="loader show" id="loader">
+  <div class="spinner"></div>
+  <div class="loader-msg" id="loaderMsg">Loading…</div>
+</div>
+<header>
+ <div class="wrap header-inner">
+  <div class="header-row">
+    <h1><span>👋</span> Keep In Touch</h1>
+    <div class="h-tools">
+      <button class="icon-btn" id="installBtn" title="Install app" hidden>⬇</button>
+      <button class="icon-btn" id="themeBtn" title="Toggle light/dark">🌙</button>
+      <button class="icon-btn" id="settingsBtn" title="Settings">⚙️</button>
+    </div>
+  </div>
+  <div class="project-bar">
+    <span class="src-dot local" id="srcDot"></span>
+    Project: <button class="project-chip" id="projectChip" title="Switch or create a project">default ▾</button>
+    <button class="link-btn" id="connectBtn">Connect project file…</button>
+    <span id="srcLabel"></span>
+  </div>
+  <div class="modes">
+    <button class="mode-btn active" data-mode="auto">Auto · due / overdue</button>
+    <button class="mode-btn" data-mode="manual">My ranking</button>
+    <button class="mode-btn" data-mode="grid">Grid rank</button>
+    <button class="mode-btn" data-mode="batch">Batch set</button>
+  </div>
+ </div>
+ <div class="wrap"><div class="banner" id="banner"></div></div>
+</header>
+
+<main class="wrap">
+  <div class="toolbar">
+    <button class="btn primary" id="addBtn">+ Add person</button>
+    <button class="btn" id="toggleArchived">Show archived</button>
+    <button class="btn" id="exportBtn">Export JSON</button>
+    <button class="btn" id="exportCsvBtn">Export CSV</button>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <ul class="list" id="list"></ul>
+  <div class="empty" id="empty" style="display:none">
+    No one here yet. Tap <b>+ Add person</b> to start your list.
+  </div>
+
+  <!-- Batch "set X" surface: drag people onto a value to bulk-set cadence / remind-days -->
+  <div id="batchPane" style="display:none">
+    <div class="batch-sub" id="batchSub">
+      <button data-field="cadence" class="active">Set cadence (days)</button>
+      <button data-field="remind">Set remind-before (days)</button>
+    </div>
+    <p class="batch-hint" id="batchHint"></p>
+    <div class="axis-label">Drag a person onto a value</div>
+    <div class="axis" id="batchAxis"></div>
+    <div class="axis-label">People</div>
+    <div class="pool" id="batchPool"></div>
+  </div>
+</main>
+
+<!-- Add / Edit modal -->
+<div class="modal-backdrop" id="editModal">
+  <div class="modal">
+    <h2 id="editTitle">Add person</h2>
+    <label class="fld">Name
+      <input type="text" id="f_name" placeholder="e.g. Alex Rivera" autocomplete="off">
+    </label>
+    <div class="row2">
+      <label class="fld">Meet every
+        <select id="f_cadence_preset"></select>
+      </label>
+      <label class="fld">Last met
+        <input type="date" id="f_lastmet">
+      </label>
+    </div>
+    <label class="fld cadence-custom" id="f_cadence_custom_wrap">Custom — every (days)
+      <input type="number" id="f_cadence_custom" min="1" value="30">
+    </label>
+    <label class="fld">Remind me X days before due (optional, overrides global)
+      <input type="number" id="f_remind" min="0" placeholder="(use global)">
+    </label>
+    <div class="modal-actions">
+      <button class="btn" id="editCancel">Cancel</button>
+      <button class="btn primary" id="editSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Project switcher modal -->
+<div class="modal-backdrop" id="projectModal">
+  <div class="modal">
+    <h2>Projects</h2>
+    <div class="hint">A project is an isolated list. Each project has its own data and its own device/cloud bindings. Switching navigates to <code>?project=NAME</code>.</div>
+    <ul class="proj-list" id="projList"></ul>
+    <label class="fld">New project name
+      <input type="text" id="p_new" placeholder="e.g. mentors" autocomplete="off">
+    </label>
+    <div class="modal-actions" style="justify-content:space-between">
+      <button class="btn" id="p_rename">Rename current…</button>
+      <span>
+        <button class="btn" id="projClose">Close</button>
+        <button class="btn primary" id="p_create">Create & switch</button>
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- History modal -->
+<div class="modal-backdrop" id="histModal">
+  <div class="modal">
+    <h2 id="histTitle">History</h2>
+    <div class="row2" style="align-items:flex-end">
+      <label class="fld">Log a meeting on
+        <input type="date" id="h_date">
+      </label>
+      <button class="btn primary" id="h_add" style="margin-bottom:0.8rem">Log it</button>
+    </div>
+    <ul class="hist-list" id="histList"></ul>
+    <div class="modal-actions">
+      <button class="btn" id="histClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-backdrop" id="settingsModal">
+  <div class="modal">
+    <h2>Settings</h2>
+    <label class="fld">Global "remind X days before due"
+      <input type="number" id="s_remind" min="0" value="3">
+    </label>
+    <div class="hint">Per-person overrides take priority. This lead time drives the in-app "due soon" banner and — when the Google Sheet backend is connected — the daily email digest. To turn on the email, run <code>installDailyReminder()</code> once in the Apps Script editor (see backend/DEPLOY.md).</div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:0.9rem 0">
+    <label class="fld">Google Sheet backend — Web app URL
+      <input type="url" id="s_sheet_url" placeholder="https://script.google.com/macros/s/…/exec">
+    </label>
+    <label class="fld">Shared token (optional)
+      <input type="text" id="s_sheet_token" placeholder="(leave blank if you didn't set one)" autocomplete="off">
+    </label>
+    <div class="modal-actions" style="justify-content:flex-start;margin-bottom:0.6rem">
+      <button class="btn primary" id="s_sheet_connect">Connect / Sync now</button>
+      <button class="btn" id="s_sheet_disconnect">Disconnect</button>
+    </div>
+    <div class="hint">The Sheet is your editable database (open it, click a cell, autosaves). See backend/DEPLOY.md to set it up once. Changes here autosave back to the Sheet.</div>
+    <label class="fld">Import data (paste exported JSON)
+      <input type="file" id="s_import" accept="application/json">
+    </label>
+    <div class="hint" id="dataSourceInfo"></div>
+    <div class="modal-actions">
+      <button class="btn" id="settingsClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- iOS add-to-home-screen hint (iOS has no install prompt API) -->
+<div class="pwa-hint" id="pwaHint" hidden>
+  <span>Install: tap Share ⬆ then "Add to Home Screen"</span>
+  <button class="link-btn" id="pwaHintClose" title="Dismiss">×</button>
+</div>
+
+<script>
+"use strict";
+
+/* =========================================================================
+   Keep In Touch — renderer (v1.9.0: installable PWA — manifest, service worker, install UI)
+   ARCHITECTURE: this file is a RENDERER, not a data owner.
+   - Each "project" (think: a user / a context) has its own isolated instance,
+     selected by the ?project=<name> URL param (default = "default").
+   - Data lives in the PROJECT's storage, not the app's:
+       (a) a project .json file the user connects (File System Access API), or
+       (b) namespaced localStorage as a fallback (key includes project name).
+   - The app keeps NO shared global bucket of user data. Updating this HTML
+     never touches data, because data is keyed by origin+project, not markup.
+   ========================================================================= */
+
+/* ---------- loading overlay ---------- */
+function showLoader(msg) {
+  const l = document.getElementById("loader");
+  if (msg) document.getElementById("loaderMsg").textContent = msg;
+  l.classList.add("show");
+}
+function hideLoader() { document.getElementById("loader").classList.remove("show"); }
+
+/* ---------- project identity ----------
+   PROJECT and its derived storage keys are MUTABLE so the app can switch
+   projects in-place (no page reload). Reloading on switch used to drop the
+   user gesture, which blocked the file-permission request and forced a manual
+   "Reconnect" click. Switching in-place keeps the selecting click's gesture
+   alive, so the project's binding loads in that same click. */
+const params = new URLSearchParams(location.search);
+function normProject(s) { return (s || "default").toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 64) || "default"; }
+const IDB_DB = "keepInTouch";
+const IDB_STORE = "handles";
+
+let PROJECT, LS_KEY, SHEET_CFG_KEY;
+function setProjectContext(name) {
+  PROJECT = normProject(name);
+  LS_KEY = "keepInTouch.project." + PROJECT;       // namespaced per project
+  SHEET_CFG_KEY = "keepInTouch.sheet." + PROJECT;   // config, not user data
+}
+/* macOS `open` strips ?query from file:// URLs before the browser sees them
+   (verified: http:// and AppleScript `open location` keep it; `open -a` does
+   not). So a bookmarked file://…?project=X loses X and would fall back to the
+   empty "default". We remember the last-active project and restore it when a
+   load arrives with no project param. Defined BEFORE the resolve call below so
+   getLastProject() isn't in the temporal dead zone. */
+const LAST_PROJECT_KEY = "keepInTouch.lastProject";
+function getLastProject() { try { return localStorage.getItem(LAST_PROJECT_KEY) || null; } catch (e) { return null; } }
+function rememberLastProject(name) { try { localStorage.setItem(LAST_PROJECT_KEY, name); } catch (e) {} }
+// If the URL carries ?project it wins; otherwise restore the last-active project
+// (covers file:// bookmarks whose query macOS `open` stripped). New users with
+// no history fall through to "default".
+const hadProjectParam = params.has("project") && params.get("project").trim() !== "";
+setProjectContext(hadProjectParam ? params.get("project") : (getLastProject() || "default"));
+
+/* ---------- project registry (list of known projects, for the switcher) ---- */
+const REGISTRY_KEY = "keepInTouch.projects";   // app-level index of project names (not data)
+function getRegistry() {
+  try { return JSON.parse(localStorage.getItem(REGISTRY_KEY)) || []; } catch (e) { return []; }
+}
+function registerProject(name) {
+  const reg = getRegistry();
+  if (!reg.includes(name)) { reg.push(name); reg.sort(); localStorage.setItem(REGISTRY_KEY, JSON.stringify(reg)); }
+}
+function unregisterProject(name) {
+  localStorage.setItem(REGISTRY_KEY, JSON.stringify(getRegistry().filter(n => n !== name)));
+}
+function gotoProject(name) {
+  const n = normProject(name);
+  registerProject(n);
+  const u = new URL(location.href);
+  u.searchParams.set("project", n);
+  location.href = u.toString();   // reload under the new project (loads its bindings)
+}
+
+const DEFAULT_CADENCE_DAYS = 30;
+// Friendly cadence presets. Quarterly/Twice-a-year/Yearly are day approximations;
+// due-math is day-based so there's no calendar drift. Days must stay unique.
+const CADENCE_PRESETS = [
+  { label: "Weekly", days: 7 },
+  { label: "Every 2 weeks", days: 14 },
+  { label: "Monthly", days: 30 },
+  { label: "Quarterly", days: 90 },
+  { label: "Twice a year", days: 182 },
+  { label: "Yearly", days: 365 }
+];
+
+const DEFAULT_STATE = {
+  schemaVersion: 1,
+  project: PROJECT,
+  globalRemindDays: 3,
+  mode: "auto",
+  manualOrder: [],
+  items: {}
+};
+
+let state = structuredClone(DEFAULT_STATE);
+let fileHandle = null;        // FileSystemFileHandle when connected to a project file
+let pendingHandle = null;     // stored handle whose permission lapsed; awaits a one-tap reconnect
+let source = "local";         // "sheet" | "file" | "local"
+
+/* ---------- Google Sheet backend config (per project) ----------
+   SHEET_CFG_KEY is set by setProjectContext() above so it tracks in-place
+   project switches. */
+function getSheetCfg() {
+  try { return JSON.parse(localStorage.getItem(SHEET_CFG_KEY)) || null; } catch (e) { return null; }
+}
+function setSheetCfg(cfg) {
+  if (cfg && cfg.url) localStorage.setItem(SHEET_CFG_KEY, JSON.stringify(cfg));
+  else localStorage.removeItem(SHEET_CFG_KEY);
+}
+function sheetEndpoint(cfg) {
+  const u = new URL(cfg.url);
+  u.searchParams.set("project", PROJECT);
+  if (cfg.token) u.searchParams.set("token", cfg.token);
+  return u.toString();
+}
+async function loadFromSheet(cfg) {
+  const res = await fetch(sheetEndpoint(cfg), { method: "GET" });
+  const data = await res.json();
+  if (data && data.error) throw new Error(data.error);
+  state = mergeState(data);
+  source = "sheet";
+}
+let sheetSaveTimer = null;
+function scheduleSheetSave(cfg) {
+  localStorage.setItem(LS_KEY, JSON.stringify(state));  // offline cache / fallback
+  if (sheetSaveTimer) clearTimeout(sheetSaveTimer);
+  sheetSaveTimer = setTimeout(() => {
+    // text/plain body avoids a CORS preflight Apps Script can't answer
+    fetch(sheetEndpoint(cfg), { method: "POST", body: JSON.stringify(state) })
+      .catch(err => console.error("sheet save failed (cached locally)", err));
+  }, 800);
+}
+
+/* ---------- IndexedDB: remember the connected file handle per project ---- */
+function idb() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(IDB_DB, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore(IDB_STORE);
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function idbGet(key) {
+  const db = await idb();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(IDB_STORE, "readonly").objectStore(IDB_STORE).get(key);
+    tx.onsuccess = () => res(tx.result); tx.onerror = () => rej(tx.error);
+  });
+}
+async function idbSet(key, val) {
+  const db = await idb();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(IDB_STORE, "readwrite").objectStore(IDB_STORE).put(val, key);
+    tx.onsuccess = () => res(); tx.onerror = () => rej(tx.error);
+  });
+}
+
+/* ---------- data source layer (file-first, local fallback) -------------- */
+const supportsFS = "showOpenFilePicker" in window;
+
+// Silent check — never prompts (queryPermission needs no user gesture).
+// Used on auto-load so a granted handle reconnects with zero clicks.
+async function hasPermission(handle, write) {
+  const opts = { mode: write ? "readwrite" : "read" };
+  return (await handle.queryPermission(opts)) === "granted";
+}
+
+// Prompting check — may show the browser permission dialog, so it MUST be
+// called from within a user gesture (a click / edit), never on auto-load.
+async function verifyPermission(handle, write) {
+  const opts = { mode: write ? "readwrite" : "read" };
+  if ((await handle.queryPermission(opts)) === "granted") return true;
+  if ((await handle.requestPermission(opts)) === "granted") return true;
+  return false;
+}
+
+function mergeState(raw) {
+  const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+  return Object.assign(structuredClone(DEFAULT_STATE), parsed, { project: PROJECT });
+}
+
+async function loadFromFile(handle) {
+  const file = await handle.getFile();
+  const text = (await file.text()).trim();
+  state = text ? mergeState(text) : structuredClone(DEFAULT_STATE);
+  fileHandle = handle; source = "file";
+  // Mirror into localStorage so a future load where the file grant has lapsed
+  // shows real last-known data instead of a blank screen.
+  try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
+}
+
+function loadFromLocal() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    state = raw ? mergeState(raw) : structuredClone(DEFAULT_STATE);
+  } catch (e) { state = structuredClone(DEFAULT_STATE); }
+  source = "local";
+}
+
+async function save() {
+  if (source === "sheet") {
+    const cfg = getSheetCfg();
+    if (cfg) { scheduleSheetSave(cfg); return; }
+  }
+  if (source === "file" && fileHandle) {
+    try {
+      // Lazily upgrade read→readwrite. save() is only ever called from a user
+      // action (add/edit/log/drag), so this may prompt without violating the
+      // gesture rule. Mirror locally regardless so data is never lost.
+      localStorage.setItem(LS_KEY, JSON.stringify(state));
+      if (!(await verifyPermission(fileHandle, true))) {
+        console.warn("write permission denied; kept local mirror only");
+        return;
+      }
+      const w = await fileHandle.createWritable();
+      await w.write(JSON.stringify(state, null, 2));
+      await w.close();
+      return;
+    } catch (e) {
+      console.error("file write failed, falling back to local", e);
+      source = "local"; updateProjectBar();
+    }
+  }
+  localStorage.setItem(LS_KEY, JSON.stringify(state));
+}
+
+async function connectProjectFile() {
+  if (!supportsFS) {
+    alert("This browser can't connect to a file directly. Use Export / Import instead — your data still lives with the project, not the app.");
+    return;
+  }
+  try {
+    const [handle] = await window.showOpenFilePicker({
+      types: [{ description: "Keep In Touch project", accept: { "application/json": [".json"] } }],
+      multiple: false
+    });
+    // The picker itself grants read access — no second permission dialog here.
+    // The readwrite upgrade happens lazily on the first save (also a gesture),
+    // so connecting a file asks for at most the one picker interaction.
+    showLoader("Opening project file…");
+    await loadFromFile(handle);
+    fileHandle = handle; pendingHandle = null;
+    await idbSet("file." + PROJECT, handle);   // remember for next launch
+    render(); updateProjectBar();
+  } catch (e) {
+    if (e.name !== "AbortError") { console.error(e); alert("Could not open file: " + e.message); }
+  } finally {
+    hideLoader();
+  }
+}
+
+/* Load the CURRENT project's data from its best available source.
+   canPrompt=true means we're inside a user gesture (e.g. a project-switch
+   click), so we may show the browser's file-permission dialog when that is
+   the ONLY way to surface data. canPrompt=false (cold page load) never
+   prompts — it shows the mirrored last-known data and arms a gentle reconnect. */
+async function loadProjectData({ canPrompt }) {
+  const sheetCfg = getSheetCfg();
+  if (sheetCfg) {
+    loadFromLocal();   // instant cached paint
+    if (Object.keys(state.items).length) { render(); updateProjectBar(); hideLoader(); }
+    else { showLoader("Syncing from Google Sheet…"); }
+    try { await loadFromSheet(sheetCfg); }
+    catch (e) { console.error("sheet load failed, using local cache", e); loadFromLocal(); }
+    return;
+  }
+  if (supportsFS) {
+    let handle = null;
+    try { handle = await idbGet("file." + PROJECT); } catch (e) {}
+    if (handle) {
+      // A stored handle whose READ grant survived loads silently and picks up
+      // any external edits — zero prompts. (readwrite is upgraded lazily on the
+      // first save, itself a gesture.)
+      if (await hasPermission(handle, false)) {
+        await loadFromFile(handle); fileHandle = handle; return;
+      }
+      // Grant lapsed. Show the mirror immediately so the user never sees blank.
+      loadFromLocal();
+      const mirrorEmpty = !Object.keys(state.items).length;
+      if (canPrompt && mirrorEmpty) {
+        // We're in a gesture AND there's no cached data to show — the only way
+        // to surface anything is to re-acquire access now (one browser dialog,
+        // no separate manual "Reconnect" press).
+        try {
+          if (await verifyPermission(handle, false)) {
+            await loadFromFile(handle); fileHandle = handle; return;
+          }
+        } catch (e) { console.error("permission upgrade failed", e); }
+      }
+      // Either no gesture, or the mirror already has data: keep showing the
+      // mirror and let the next interaction silently refresh from the file.
+      pendingHandle = handle; armReconnectOnGesture();
+      return;
+    }
+  }
+  loadFromLocal();
+}
+
+/* Switch projects WITHOUT a page reload. Called from the project-switcher
+   click, so the gesture stays alive and the new project's file binding can
+   load (or, if needed, prompt) in that same click — no manual Reconnect. */
+async function switchProjectInPlace(name) {
+  const target = normProject(name);
+  if (target === PROJECT) { closeModal("projectModal"); return; }
+  setProjectContext(target);
+  registerProject(PROJECT);
+  rememberLastProject(PROJECT);   // so a stripped-query reload restores this one
+  // reset per-project runtime state
+  state = structuredClone(DEFAULT_STATE);
+  fileHandle = null; pendingHandle = null; source = "local"; reconnectArmed = false;
+  if (sheetSaveTimer) { clearTimeout(sheetSaveTimer); sheetSaveTimer = null; }
+  // reset the archived view (the in-place path keeps the module var; reload wouldn't)
+  showArchived = false; hideToast(); document.body.classList.remove("archived-view");
+  const tb = document.getElementById("toggleArchived");
+  tb.textContent = "Show archived"; tb.classList.remove("primary");
+  // reflect the switch in the URL without navigating (keeps the gesture)
+  const u = new URL(location.href);
+  u.searchParams.set("project", PROJECT);
+  history.replaceState(null, "", u.toString());
+  closeModal("projectModal");
+  showLoader("Loading " + PROJECT + "…");
+  try {
+    await loadProjectData({ canPrompt: true });
+    syncModeButtons();
+    render(); updateProjectBar();
+  } finally { hideLoader(); }
+}
+
+function syncModeButtons() {
+  document.querySelectorAll(".mode-btn").forEach(b =>
+    b.classList.toggle("active", b.dataset.mode === state.mode));
+}
+
+/* Decide whether to greet the user with the project picker. On the bare
+   "default" project with nothing in it and other projects available, the
+   picker is more useful than an empty default list. */
+function shouldOpenPickerOnStart() {
+  if (PROJECT !== "default") return false;                  // user asked for a specific project
+  if (Object.keys(state.items).length) return false;        // default already has data — just show it
+  if (source !== "local") return false;                     // default is bound to a file/sheet
+  if (pendingHandle) return false;                          // a reconnect is already pending
+  return true;   // empty, unbound default → greet with the picker (also the create-project UI)
+}
+
+async function init() {
+  populateCadencePresets();   // fill the Add/Edit cadence select before the modal can open
+  applyTheme(localStorage.getItem("keepInTouch.theme") || "light");
+  registerProject(PROJECT);   // make the current project discoverable in the switcher
+  rememberLastProject(PROJECT);
+  // Reflect the resolved project in the URL bar even when the query was stripped
+  // by macOS `open` — so a copy of the address now carries ?project=… again.
+  if (location.protocol === "file:" || !params.has("project")) {
+    const u = new URL(location.href);
+    u.searchParams.set("project", PROJECT);
+    try { history.replaceState(null, "", u.toString()); } catch (e) {}
+  }
+  try {
+    await loadProjectData({ canPrompt: false });   // cold load: never prompt
+    syncModeButtons();
+    render(); updateProjectBar();
+    if (shouldOpenPickerOnStart()) { renderProjList(); openModal("projectModal"); }
+  } finally {
+    hideLoader();
+  }
+}
+
+/* ---------- theme ---------- */
+function applyTheme(t) {
+  document.documentElement.setAttribute("data-theme", t);
+  document.getElementById("themeBtn").textContent = t === "dark" ? "☀️" : "🌙";
+  localStorage.setItem("keepInTouch.theme", t);  // UI pref, not user data
+  // Keep the OS status-bar color in sync with the in-app theme (single source of truth).
+  const tc = document.querySelector('meta[name="theme-color"]');
+  if (tc) tc.setAttribute("content", t === "dark" ? "#0f1419" : "#2f6df0");
+}
+document.getElementById("themeBtn").onclick = () => {
+  const cur = document.documentElement.getAttribute("data-theme");
+  applyTheme(cur === "dark" ? "light" : "dark");
+};
+
+/* ---------- lapsed-grant reconnect (no manual file re-pick) ----------
+   When a stored handle exists but its permission lapsed, we can't prompt on
+   auto-load (no user gesture). Instead we arm a one-shot listener so the FIRST
+   interaction anywhere on the page silently re-grants and loads the real file —
+   the user never picks the file again and never hunts for a button. */
+let reconnectArmed = false;
+async function reconnectFromPending() {
+  if (!pendingHandle) return;
+  const handle = pendingHandle;
+  try {
+    if (await verifyPermission(handle, false)) {   // gesture present → may prompt
+      showLoader("Reconnecting project file…");
+      await loadFromFile(handle);
+      fileHandle = handle; pendingHandle = null;
+      render(); updateProjectBar();
+    }
+  } catch (e) { console.error("reconnect failed", e); }
+  finally { hideLoader(); }
+}
+function armReconnectOnGesture() {
+  if (reconnectArmed || !pendingHandle) return;
+  reconnectArmed = true;
+  const fire = async () => {
+    ["pointerdown", "keydown"].forEach(ev => window.removeEventListener(ev, fire, true));
+    reconnectArmed = false;
+    await reconnectFromPending();
+  };
+  ["pointerdown", "keydown"].forEach(ev => window.addEventListener(ev, fire, true));
+}
+
+/* ---------- project bar ---------- */
+function updateProjectBar() {
+  document.getElementById("projectChip").textContent = PROJECT + " ▾";
+  const dot = document.getElementById("srcDot");
+  const label = document.getElementById("srcLabel");
+  dot.className = "src-dot " + (pendingHandle ? "local" : source);
+  if (pendingHandle) {
+    label.innerHTML = "· <button class=\"link-btn\" id=\"reconnectBtn\">Reconnect file</button> to sync edits";
+    document.getElementById("reconnectBtn").onclick = reconnectFromPending;
+  } else if (source === "sheet") {
+    label.textContent = "· synced to Google Sheet";
+  } else if (source === "file") {
+    label.textContent = "· saved to connected file";
+    document.getElementById("connectBtn").textContent = "Change file…";
+  } else {
+    label.textContent = "· saved in this browser";
+  }
+  const info = document.getElementById("dataSourceInfo");
+  info.innerHTML = supportsFS
+    ? `Data source: <b>${source === "file" ? "connected project file" : "browser localStorage"}</b>. ` +
+      `Open this app with <code>?project=NAME</code> to keep separate instances. ` +
+      `Connect a project file to make the project own its data.`
+    : `This browser lacks file access — data lives in localStorage namespaced to project <b>${PROJECT}</b>. Use Export/Import to move it with the project.`;
+}
+
+/* ---------- date helpers ---------- */
+const MS_DAY = 86400000;
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+function parseISO(s) { return s ? new Date(s + "T00:00:00") : null; }
+function daysBetween(a, b) { return Math.round((b - a) / MS_DAY); }
+
+function lastMet(item) {
+  if (!item.history || !item.history.length) return null;
+  return item.history.slice().sort().at(-1);
+}
+/* Human "time ago" for a YYYY-MM-DD date: today / yesterday / N days ago /
+   N weeks ago / N months ago / N years ago. Returns "" for null. */
+function humanizeRelative(dateISO) {
+  if (!dateISO) return "";
+  const d = daysBetween(parseISO(dateISO), parseISO(todayISO()));
+  if (d < 0) return "in the future";
+  if (d === 0) return "today";
+  if (d === 1) return "yesterday";
+  if (d < 7) return d + " days ago";
+  if (d < 14) return "1 week ago";
+  if (d < 60) return Math.round(d / 7) + " weeks ago";
+  if (d < 365) return Math.round(d / 30) + " months ago";
+  const yrs = Math.floor(d / 365);
+  return yrs === 1 ? "1 year ago" : yrs + " years ago";
+}
+function nextDue(item) {
+  const lm = lastMet(item);
+  if (!lm) return null;
+  return new Date(parseISO(lm).getTime() + item.cadenceDays * MS_DAY);
+}
+function daysUntilDue(item) {
+  const nd = nextDue(item);
+  if (!nd) return null;
+  return daysBetween(parseISO(todayISO()), nd);
+}
+function statusOf(item) {
+  const d = daysUntilDue(item);
+  const remind = item.remindDays != null ? item.remindDays : state.globalRemindDays;
+  if (d === null) return { cls: "due-soon", label: "Never met", order: -1e9 };
+  if (d < 0) return { cls: "overdue", label: `Overdue ${-d}d`, order: d };
+  if (d <= remind) return { cls: "due-soon", label: `Due in ${d}d`, order: d };
+  return { cls: "on-track", label: `In ${d}d`, order: d };
+}
+
+/* ---------- rendering ---------- */
+let showArchived = false;
+let toastTimer = null;        // archive-undo toast dismissal timer
+let batchField = "cadence";   // "cadence" | "remind" — runtime only, not persisted
+// Cadence values beyond the 1..30 row: the preset days over 30, plus 45 & 60.
+const BATCH_AXIS_PRESETS = [...new Set([45, 60, ...CADENCE_PRESETS.map(p => p.days).filter(d => d > 30)])].sort((a, b) => a - b);
+
+// Canonical ACTIVE set for ALL due math — ignores showArchived so the banner
+// never counts archived people, even while the archived view is open.
+function trackedItems() {
+  return Object.values(state.items).filter(i => !i.archived);
+}
+// Display set — honors the archived toggle (active list vs archived view).
+function visibleItems() {
+  return Object.values(state.items).filter(i => showArchived ? i.archived : !i.archived);
+}
+function sortedForMode() {
+  let items = visibleItems();
+  if (state.mode === "auto") {
+    items.sort((a, b) => statusOf(a).order - statusOf(b).order);
+  } else {
+    const idx = id => { const i = state.manualOrder.indexOf(id); return i === -1 ? 1e9 : i; };
+    items.sort((a, b) => idx(a.id) - idx(b.id));
+  }
+  return items;
+}
+
+function render() {
+  const list = document.getElementById("list");
+  const empty = document.getElementById("empty");
+  const batchPane = document.getElementById("batchPane");
+  // Batch mode swaps the list for the drag-to-set surface.
+  if (state.mode === "batch") {
+    list.style.display = "none"; empty.style.display = "none";
+    batchPane.style.display = "block";
+    document.body.classList.remove("grid-mode");
+    renderBatch(); renderBanner();
+    return;
+  }
+  list.style.display = ""; batchPane.style.display = "none";
+  list.innerHTML = "";
+  // Grid is a ranking surface — force it off in the archived view (which is non-draggable).
+  const grid = state.mode === "grid" && !showArchived;
+  list.classList.toggle("grid", grid);
+  document.body.classList.toggle("grid-mode", grid);
+  document.body.classList.toggle("archived-view", showArchived);
+  const items = sortedForMode();
+  empty.style.display = items.length ? "none" : "block";
+  // Set the empty copy on BOTH branches so toggling back restores the active text.
+  empty.innerHTML = showArchived
+    ? "No archived people. Archive someone from the active list to park them here."
+    : "No one here yet. Tap <b>+ Add person</b> to start your list.";
+
+  // both "manual" and "grid" are draggable reorder modes
+  const draggable = (state.mode === "manual" || grid) && !showArchived;
+
+  items.forEach((item, i) => {
+    const st = statusOf(item);
+    const li = document.createElement("li");
+    li.className = `card ${st.cls}${grid ? " compact" : ""}`;
+    li.dataset.id = item.id;
+    li.draggable = draggable;
+    const lm = lastMet(item);
+    const remind = item.remindDays != null ? item.remindDays : state.globalRemindDays;
+    if (grid) {
+      // dense card: rank number + name + status + key facts, no action buttons
+      li.innerHTML = `
+        ${draggable ? '<span class="handle" title="Drag to reorder">⠿</span>' : ''}
+        <div class="card-body">
+          <div class="card-title">
+            <span class="rank-num">${i + 1}</span>
+            <span class="grid-name">${escapeHtml(item.name)}</span>
+            <span class="pill ${st.cls}">${st.label}</span>
+          </div>
+          <div class="card-meta">
+            every ${item.cadenceDays}d · ${lm ? humanizeRelative(lm) : "never met"} · ${item.history.length} logged
+          </div>
+        </div>`;
+    } else {
+      li.innerHTML = `
+        ${draggable ? '<span class="handle" title="Drag to reorder">⠿</span>' : ''}
+        <div class="card-body">
+          <div class="card-title">
+            <span>${escapeHtml(item.name)}</span>
+            <span class="pill ${st.cls}">${st.label}</span>
+          </div>
+          <div class="card-meta">
+            Every ${item.cadenceDays}d ·
+            ${lm ? "last met " + humanizeRelative(lm) + ' <span style="opacity:.7">(' + lm + ')</span>' : "no meetings logged"} ·
+            ${item.history.length} logged · remind ${remind}d before${item.archived ? (item.archivedAt ? " · archived " + item.archivedAt : " · archived") : ""}
+          </div>
+          <div class="card-actions">
+            ${item.archived ? "" : '<button class="mini accent" data-act="met">✔ Met today</button>'}
+            <button class="mini" data-act="hist">History</button>
+            <button class="mini" data-act="edit">Edit</button>
+            <button class="mini" data-act="archive">${item.archived ? "Restore" : "Archive"}</button>
+          </div>
+        </div>`;
+    }
+    list.appendChild(li);
+  });
+  renderBanner();
+}
+
+function renderBanner() {
+  const banner = document.getElementById("banner");
+  const due = trackedItems().filter(i => {
+    const d = daysUntilDue(i);
+    const remind = i.remindDays != null ? i.remindDays : state.globalRemindDays;
+    return d === null || d <= remind;
+  });
+  if (!due.length) {
+    banner.className = "banner";
+    banner.textContent = "✓ Everyone's on track. Nice.";
+  } else {
+    banner.className = "banner alert";
+    const names = due.map(i => i.name).slice(0, 4).join(", ");
+    banner.textContent = `⏰ ${due.length} due or overdue: ${names}${due.length > 4 ? "…" : ""}`;
+  }
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+/* ---------- archive / restore (F7) ---------- */
+function archiveItem(id) {
+  const it = state.items[id]; if (!it) return;
+  it.archived = true; it.archivedAt = todayISO();
+  save(); render(); showArchiveUndo(id, it.name);
+}
+function restoreItem(id) {
+  const it = state.items[id]; if (!it) return;
+  it.archived = false; delete it.archivedAt;
+  save(); render();
+}
+// Transient "Archived X · Undo" toast. Reuses #toast; 6s auto-dismiss.
+function showArchiveUndo(id, name) {
+  if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+  const toast = document.getElementById("toast");
+  toast.innerHTML = `<span>Archived ${escapeHtml(name)}</span><button type="button">Undo</button>`;
+  toast.querySelector("button").onclick = () => { restoreItem(id); hideToast(); };
+  toast.classList.add("show");
+  toastTimer = setTimeout(hideToast, 6000);
+}
+function hideToast() {
+  if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+  document.getElementById("toast").classList.remove("show");
+}
+
+/* ---------- cadence presets (F3) ---------- */
+// Inject preset options + a final "Custom…" into the Add/Edit select. Idempotent.
+function populateCadencePresets() {
+  const sel = document.getElementById("f_cadence_preset");
+  sel.innerHTML = CADENCE_PRESETS.map(p => `<option value="${p.days}">${p.label}</option>`).join("")
+    + `<option value="custom">Custom…</option>`;
+}
+// Map a day count to its preset value-string, or "custom" if it matches none.
+function presetValueFor(days) {
+  const hit = CADENCE_PRESETS.find(p => p.days === days);
+  return hit ? String(hit.days) : "custom";
+}
+// Reveal the custom days field iff the select is on "Custom…". No focus() — see openEdit.
+function syncCustomCadenceVisibility() {
+  const custom = document.getElementById("f_cadence_preset").value === "custom";
+  document.getElementById("f_cadence_custom_wrap").classList.toggle("open", custom);
+}
+// Single clamp contract for both preset and custom paths.
+function readCadenceDays() {
+  const pv = document.getElementById("f_cadence_preset").value;
+  const raw = pv === "custom" ? document.getElementById("f_cadence_custom").value : pv;
+  return Math.max(1, parseInt(raw, 10) || DEFAULT_CADENCE_DAYS);
+}
+
+/* ---------- batch "set X" mode ---------- */
+// The value currently shown for an item under the active batch field.
+function batchValueOf(item) {
+  if (batchField === "cadence") return item.cadenceDays;
+  const g = state.globalRemindDays != null ? state.globalRemindDays : 3;
+  return item.remindDays != null ? item.remindDays : g;
+}
+// Apply a dropped value to an item's active batch field, then persist + re-render.
+function applyBatchValue(id, value) {
+  const item = state.items[id];
+  if (!item) return;
+  const v = Math.max(batchField === "cadence" ? 1 : 0, parseInt(value, 10) || 0);
+  if (batchField === "cadence") item.cadenceDays = v;
+  else item.remindDays = v;
+  save();
+  renderBatch();
+  // flash the moved chip
+  const chip = document.querySelector(`.pool-item[data-id="${id}"]`);
+  if (chip) { chip.classList.add("flash"); setTimeout(() => chip.classList.remove("flash"), 600); }
+}
+function renderBatch() {
+  document.querySelectorAll(".batch-sub button").forEach(b =>
+    b.classList.toggle("active", b.dataset.field === batchField));
+  document.getElementById("batchHint").textContent = batchField === "cadence"
+    ? "Drag a person onto a number to set how often (in days) you want to keep in touch."
+    : "Drag a person onto a number to set how many days before a due date you're reminded.";
+  // axis: 1..30 then a few larger presets (cadence only — remind rarely exceeds 30)
+  const axis = document.getElementById("batchAxis");
+  const values = Array.from({ length: 30 }, (_, i) => i + 1);
+  const presetSet = new Set(batchField === "cadence" ? BATCH_AXIS_PRESETS : []);
+  axis.innerHTML = "";
+  const counts = {};
+  trackedItems().forEach(it => { const v = batchValueOf(it); counts[v] = (counts[v] || 0) + 1; });
+  const mkCell = (v, preset) => {
+    const d = document.createElement("div");
+    d.className = "axis-val" + (preset ? " preset" : "");
+    d.dataset.value = v;
+    d.innerHTML = `<span>${v}</span>` + (counts[v] ? `<span class="cnt">${counts[v]}</span>` : "");
+    axis.appendChild(d);
+  };
+  values.forEach(v => mkCell(v, false));
+  [...presetSet].forEach(v => mkCell(v, true));
+  // pool of people with their current value
+  const pool = document.getElementById("batchPool");
+  pool.innerHTML = "";
+  // Order the chips by the "My ranking" (manual) order so batch-setting follows
+  // the same priority the user arranged in that mode; unranked fall to the end.
+  const rankIdx = id => { const i = state.manualOrder.indexOf(id); return i === -1 ? 1e9 : i; };
+  const items = trackedItems().sort((a, b) => rankIdx(a.id) - rankIdx(b.id));
+  if (!items.length) { pool.innerHTML = '<span style="color:var(--text-dim)">No active people. Add someone first.</span>'; return; }
+  items.forEach(it => {
+    const el = document.createElement("div");
+    el.className = "pool-item"; el.dataset.id = it.id; el.draggable = true;
+    el.innerHTML = `<span>${escapeHtml(it.name)}</span><span class="val">${batchValueOf(it)}d</span>`;
+    pool.appendChild(el);
+  });
+}
+
+/* ---------- actions ---------- */
+function logMeeting(id, dateISO) {
+  const item = state.items[id];
+  if (!item) return;
+  if (!item.history.includes(dateISO)) item.history.push(dateISO); // append-only
+  item.history.sort();
+  save(); render();
+}
+
+/* ---------- history entry date extractor (F8; forward-compat with F2 notes) ----------
+   Entries are ISO strings today. If a future version makes them {date, note},
+   this keeps edit/delete/CSV working without clobbering the note. */
+function histDate(entry) { return typeof entry === "string" ? entry : (entry && entry.date) || ""; }
+
+/* ---------- export helpers (F8) ---------- */
+function downloadBlob(filename, mime, text) {
+  const blob = new Blob([text], { type: mime });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function csvCell(v) {
+  const s = String(v);
+  return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+// One row per logged meeting across all people; people with no history are skipped.
+function buildHistoryCsv() {
+  const header = "person_id,person,cadence_days,remind_days,archived,meeting_date,note,is_last_met";
+  const rows = [header];
+  for (const item of Object.values(state.items)) {
+    if (!item.history || !item.history.length) continue;
+    const sorted = item.history.slice().sort((a, b) => histDate(a).localeCompare(histDate(b)));
+    const last = histDate(sorted[sorted.length - 1]);
+    for (const entry of sorted) {
+      const d = histDate(entry);
+      const note = typeof entry === "object" && entry ? (entry.note || "") : "";
+      rows.push([
+        csvCell(item.id), csvCell(item.name), csvCell(item.cadenceDays),
+        csvCell(item.remindDays == null ? "" : item.remindDays),
+        csvCell(!!item.archived), csvCell(d), csvCell(note), csvCell(d === last)
+      ].join(","));
+    }
+  }
+  return rows.join("\r\n") + "\r\n";
+}
+function exportJson() {
+  downloadBlob("keep-in-touch-" + PROJECT + "-" + todayISO() + ".json",
+    "application/json", JSON.stringify(state, null, 2));
+}
+function exportHistoryCsv() {
+  // Prepend a UTF-8 BOM (U+FEFF) so Excel reads non-ASCII names correctly.
+  const BOM = String.fromCharCode(0xFEFF);
+  downloadBlob("keep-in-touch-" + PROJECT + "-history-" + todayISO() + ".csv",
+    "text/csv;charset=utf-8", BOM + buildHistoryCsv());
+}
+
+/* ---------- history entry edit / delete (F8) ---------- */
+function editHistEntry(idx, newISO) {
+  const item = state.items[histId]; if (!item) return;
+  const entry = item.history[idx];
+  if (!newISO || newISO === histDate(entry)) { editingHistDate = null; renderHist(); return; }
+  const updated = typeof entry === "string" ? newISO : { ...entry, date: newISO };
+  const next = item.history.slice(); next[idx] = updated;
+  // dedup by date (keep first), then sort by date
+  const seen = new Set(); const deduped = [];
+  for (const e of next) { const d = histDate(e); if (seen.has(d)) continue; seen.add(d); deduped.push(e); }
+  deduped.sort((a, b) => histDate(a).localeCompare(histDate(b)));
+  item.history = deduped; editingHistDate = null;
+  save(); renderHist(); render();
+}
+function deleteHistEntry(idx) {
+  const item = state.items[histId]; if (!item) return;
+  const d = histDate(item.history[idx]);
+  if (!confirm("Delete the meeting logged on " + d + "? History is the source of truth for due dates and this can't be undone.")) return;
+  item.history = item.history.filter((_, i) => i !== idx);
+  save(); renderHist(); render();
+}
+
+document.getElementById("list").addEventListener("click", e => {
+  const btn = e.target.closest("[data-act]");
+  if (!btn) return;
+  const id = e.target.closest(".card").dataset.id;
+  const act = btn.dataset.act;
+  if (act === "met") logMeeting(id, todayISO());
+  else if (act === "hist") openHistory(id);
+  else if (act === "edit") openEdit(id);
+  else if (act === "archive") { if (state.items[id].archived) restoreItem(id); else archiveItem(id); }
+});
+
+/* ---------- drag & drop (manual mode) ---------- */
+let dragId = null;
+const listEl = document.getElementById("list");
+listEl.addEventListener("dragstart", e => {
+  const li = e.target.closest(".card"); if (!li) return;
+  dragId = li.dataset.id; li.classList.add("dragging");
+});
+listEl.addEventListener("dragend", e => {
+  e.target.closest(".card")?.classList.remove("dragging");
+  document.querySelectorAll(".drag-over").forEach(el => el.classList.remove("drag-over"));
+});
+listEl.addEventListener("dragover", e => {
+  e.preventDefault();
+  const li = e.target.closest(".card");
+  document.querySelectorAll(".drag-over").forEach(el => el.classList.remove("drag-over"));
+  if (li && li.dataset.id !== dragId) li.classList.add("drag-over");
+});
+listEl.addEventListener("drop", e => {
+  e.preventDefault();
+  const li = e.target.closest(".card"); if (!li || !dragId) return;
+  if (li.dataset.id === dragId) return;
+  reorder(dragId, li.dataset.id); dragId = null;
+});
+function currentOrderIds() { return sortedForMode().map(i => i.id); }
+function reorder(fromId, toId) {
+  let order = currentOrderIds().filter(id => id !== fromId);
+  order.splice(order.indexOf(toId), 0, fromId);
+  const extras = state.manualOrder.filter(id => !order.includes(id) && state.items[id]);
+  state.manualOrder = order.concat(extras);
+  save(); render();
+}
+/* touch drag (Android) */
+let touchDrag = null;
+listEl.addEventListener("touchstart", e => {
+  const handle = e.target.closest(".handle"); if (!handle) return;
+  const li = handle.closest(".card");
+  touchDrag = { id: li.dataset.id, el: li }; li.classList.add("dragging");
+}, { passive: true });
+listEl.addEventListener("touchmove", e => {
+  if (!touchDrag) return; e.preventDefault();
+  const t = e.touches[0];
+  const over = document.elementFromPoint(t.clientX, t.clientY)?.closest(".card");
+  document.querySelectorAll(".drag-over").forEach(el => el.classList.remove("drag-over"));
+  if (over && over.dataset.id !== touchDrag.id) over.classList.add("drag-over");
+}, { passive: false });
+listEl.addEventListener("touchend", e => {
+  if (!touchDrag) return;
+  const t = e.changedTouches[0];
+  const over = document.elementFromPoint(t.clientX, t.clientY)?.closest(".card");
+  if (over && over.dataset.id !== touchDrag.id) reorder(touchDrag.id, over.dataset.id);
+  touchDrag.el.classList.remove("dragging");
+  document.querySelectorAll(".drag-over").forEach(el => el.classList.remove("drag-over"));
+  touchDrag = null;
+});
+
+/* ---------- batch mode: sub-toggle + drag-to-set ---------- */
+document.getElementById("batchSub").addEventListener("click", e => {
+  const btn = e.target.closest("button[data-field]"); if (!btn) return;
+  batchField = btn.dataset.field; renderBatch();
+});
+const batchAxisEl = document.getElementById("batchAxis");
+const batchPoolEl = document.getElementById("batchPool");
+let batchDragId = null;
+// HTML5 drag (desktop)
+batchPoolEl.addEventListener("dragstart", e => {
+  const chip = e.target.closest(".pool-item"); if (!chip) return;
+  batchDragId = chip.dataset.id; chip.classList.add("dragging");
+  e.dataTransfer.effectAllowed = "move";
+});
+batchPoolEl.addEventListener("dragend", e => {
+  e.target.closest(".pool-item")?.classList.remove("dragging");
+});
+batchAxisEl.addEventListener("dragover", e => {
+  e.preventDefault();
+  const cell = e.target.closest(".axis-val");
+  document.querySelectorAll(".axis-val.drag-over").forEach(el => el.classList.remove("drag-over"));
+  if (cell) cell.classList.add("drag-over");
+});
+batchAxisEl.addEventListener("drop", e => {
+  e.preventDefault();
+  const cell = e.target.closest(".axis-val");
+  document.querySelectorAll(".axis-val.drag-over").forEach(el => el.classList.remove("drag-over"));
+  if (cell && batchDragId) applyBatchValue(batchDragId, cell.dataset.value);
+  batchDragId = null;
+});
+// touch drag (Android) — mirrors the list's touch handlers
+let batchTouch = null;
+batchPoolEl.addEventListener("touchstart", e => {
+  const chip = e.target.closest(".pool-item"); if (!chip) return;
+  batchTouch = { id: chip.dataset.id, el: chip }; chip.classList.add("dragging");
+}, { passive: true });
+document.addEventListener("touchmove", e => {
+  if (!batchTouch) return; e.preventDefault();
+  const t = e.touches[0];
+  const cell = document.elementFromPoint(t.clientX, t.clientY)?.closest(".axis-val");
+  document.querySelectorAll(".axis-val.drag-over").forEach(el => el.classList.remove("drag-over"));
+  if (cell) cell.classList.add("drag-over");
+}, { passive: false });
+document.addEventListener("touchend", e => {
+  if (!batchTouch) return;
+  const t = e.changedTouches[0];
+  const cell = document.elementFromPoint(t.clientX, t.clientY)?.closest(".axis-val");
+  if (cell) applyBatchValue(batchTouch.id, cell.dataset.value);
+  batchTouch.el.classList.remove("dragging");
+  document.querySelectorAll(".axis-val.drag-over").forEach(el => el.classList.remove("drag-over"));
+  batchTouch = null;
+});
+
+/* ---------- modals ---------- */
+function openModal(id) { document.getElementById(id).classList.add("open"); }
+function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+
+let editingId = null;
+function openEdit(id) {
+  editingId = id;
+  const item = id ? state.items[id] : null;
+  document.getElementById("editTitle").textContent = item ? "Edit person" : "Add person";
+  document.getElementById("f_name").value = item ? item.name : "";
+  const days = item ? item.cadenceDays : DEFAULT_CADENCE_DAYS;
+  document.getElementById("f_cadence_preset").value = presetValueFor(days);
+  document.getElementById("f_cadence_custom").value = days;   // prefill so Custom shows the real number
+  syncCustomCadenceVisibility();                              // no focus here — f_name.focus() below wins
+  document.getElementById("f_lastmet").value = item ? (lastMet(item) || "") : "";
+  document.getElementById("f_remind").value = item && item.remindDays != null ? item.remindDays : "";
+  openModal("editModal");
+  document.getElementById("f_name").focus();
+}
+function uid() { return "p_" + Date.now().toString(36) + "_" + Math.floor(Math.random() * 1e6).toString(36); }
+document.getElementById("addBtn").onclick = () => openEdit(null);
+document.getElementById("editCancel").onclick = () => closeModal("editModal");
+document.getElementById("f_cadence_preset").addEventListener("change", syncCustomCadenceVisibility);
+document.getElementById("editSave").onclick = () => {
+  const name = document.getElementById("f_name").value.trim();
+  if (!name) { alert("Name required"); return; }
+  const cadence = readCadenceDays();
+  const lastMetVal = document.getElementById("f_lastmet").value;
+  const remindVal = document.getElementById("f_remind").value;
+  const remindDays = remindVal === "" ? null : Math.max(0, parseInt(remindVal));
+  if (editingId) {
+    const item = state.items[editingId];
+    item.name = name; item.cadenceDays = cadence; item.remindDays = remindDays;
+    if (lastMetVal && lastMet(item) !== lastMetVal && !item.history.includes(lastMetVal)) {
+      item.history.push(lastMetVal); item.history.sort();
+    }
+  } else {
+    const id = uid();
+    state.items[id] = { id, name, cadenceDays: cadence, remindDays,
+      history: lastMetVal ? [lastMetVal] : [], archived: false };
+    state.manualOrder.push(id);
+  }
+  save(); render(); closeModal("editModal");
+};
+
+/* history modal */
+let histId = null;
+let editingHistDate = null;   // ISO date of the row currently being edited, or null
+function openHistory(id) {
+  histId = id;
+  editingHistDate = null;
+  document.getElementById("histTitle").textContent = "History · " + state.items[id].name;
+  document.getElementById("h_date").value = todayISO();
+  renderHist(); openModal("histModal");
+}
+function renderHist() {
+  const item = state.items[histId];
+  const ul = document.getElementById("histList"); ul.innerHTML = "";
+  if (!item.history.length) { ul.innerHTML = '<li style="color:var(--text-dim)">No meetings logged yet.</li>'; return; }
+  // Pair each entry with its original index, then show most-recent first.
+  const pairs = item.history.map((entry, idx) => ({ d: histDate(entry), idx }));
+  pairs.sort((a, b) => b.d.localeCompare(a.d));
+  for (const { d, idx } of pairs) {
+    const li = document.createElement("li");
+    if (editingHistDate === d) {
+      li.innerHTML = `<input type="date" class="hist-edit-input" value="${d}">` +
+        `<span class="hist-row-actions">` +
+        `<button class="mini accent" data-save="${idx}">Save</button>` +
+        `<button class="mini" data-cancel="1">Cancel</button></span>`;
+    } else {
+      li.innerHTML = `<span>${d} <span style="color:var(--text-dim)">· ${humanizeRelative(d)}</span></span>` +
+        `<span class="hist-row-actions">` +
+        `<button class="mini" data-edit="${idx}">Edit</button>` +
+        `<button class="mini" data-del="${idx}">Delete</button></span>`;
+    }
+    ul.appendChild(li);
+  }
+}
+document.getElementById("h_add").onclick = () => {
+  const d = document.getElementById("h_date").value;
+  if (d) { editingHistDate = null; logMeeting(histId, d); renderHist(); }
+};
+document.getElementById("histList").addEventListener("click", e => {
+  const btn = e.target.closest("[data-edit],[data-del],[data-save],[data-cancel]"); if (!btn) return;
+  const li = e.target.closest("li");
+  const item = state.items[histId];
+  if (btn.dataset.del != null) { deleteHistEntry(+btn.dataset.del); }
+  else if (btn.dataset.edit != null) {
+    editingHistDate = histDate(item.history[+btn.dataset.edit]); renderHist();
+    document.querySelector(".hist-edit-input")?.focus();
+  } else if (btn.dataset.save != null) {
+    const inp = li.querySelector(".hist-edit-input"); editHistEntry(+btn.dataset.save, inp ? inp.value : "");
+  } else if (btn.dataset.cancel != null) { editingHistDate = null; renderHist(); }
+});
+// Keyboard: Enter commits the edit row, Escape cancels (no mouse trip needed).
+document.getElementById("histList").addEventListener("keydown", e => {
+  const inp = e.target.closest(".hist-edit-input"); if (!inp) return;
+  const li = e.target.closest("li");
+  const saveBtn = li.querySelector("[data-save]");
+  if (e.key === "Enter") { e.preventDefault(); editHistEntry(+saveBtn.dataset.save, inp.value); }
+  else if (e.key === "Escape") { e.preventDefault(); editingHistDate = null; renderHist(); }
+});
+document.getElementById("histClose").onclick = () => closeModal("histModal");
+
+/* settings */
+document.getElementById("settingsBtn").onclick = () => {
+  document.getElementById("s_remind").value = state.globalRemindDays;
+  const cfg = getSheetCfg();
+  document.getElementById("s_sheet_url").value = cfg ? cfg.url : "";
+  document.getElementById("s_sheet_token").value = cfg && cfg.token ? cfg.token : "";
+  updateProjectBar(); openModal("settingsModal");
+};
+document.getElementById("s_sheet_connect").onclick = async () => {
+  const url = document.getElementById("s_sheet_url").value.trim();
+  const token = document.getElementById("s_sheet_token").value.trim();
+  if (!url) { alert("Paste the Web app URL first."); return; }
+  const cfg = { url, token: token || null };
+  try {
+    showLoader("Connecting to Google Sheet…");
+    await loadFromSheet(cfg);     // verify it works before saving config
+    setSheetCfg(cfg);
+    await save();                 // push current/merged state up
+    render(); updateProjectBar();
+    hideLoader();
+    alert("Connected to Google Sheet. Changes now autosave there.");
+  } catch (e) { hideLoader(); alert("Could not connect: " + e.message); }
+};
+document.getElementById("s_sheet_disconnect").onclick = () => {
+  setSheetCfg(null);
+  source = supportsFS && fileHandle ? "file" : "local";
+  updateProjectBar();
+  alert("Disconnected. Data now lives in " + (source === "file" ? "the connected file." : "this browser."));
+};
+document.getElementById("s_remind").onchange = e => {
+  state.globalRemindDays = Math.max(0, parseInt(e.target.value) || 0);
+  save(); render();
+};
+document.getElementById("settingsClose").onclick = () => closeModal("settingsModal");
+document.getElementById("s_import").onchange = e => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (!data.items) throw new Error("not a Keep In Touch export");
+      state = mergeState(data);
+      save(); render(); closeModal("settingsModal"); alert("Imported.");
+    } catch (err) { alert("Import failed: " + err.message); }
+  };
+  reader.readAsText(file);
+};
+
+/* export */
+document.getElementById("exportBtn").onclick = exportJson;
+document.getElementById("exportCsvBtn").onclick = exportHistoryCsv;
+
+/* connect project file */
+document.getElementById("connectBtn").onclick = connectProjectFile;
+
+/* ---------- project switcher ---------- */
+function bindingsLabel(name) {
+  const tags = [];
+  if (localStorage.getItem("keepInTouch.sheet." + name)) tags.push("Sheet");
+  if (localStorage.getItem("keepInTouch.project." + name)) tags.push("local");
+  // file bindings live in IndexedDB; we annotate the current project synchronously elsewhere
+  return tags.join(" · ") || "no data yet";
+}
+function renderProjList() {
+  const ul = document.getElementById("projList");
+  ul.innerHTML = "";
+  const reg = getRegistry();
+  if (!reg.length) ul.innerHTML = '<li style="cursor:default">No projects yet.</li>';
+  for (const name of reg) {
+    const li = document.createElement("li");
+    if (name === PROJECT) li.className = "current";
+    li.innerHTML = `<span>${escapeHtml(name)}${name === PROJECT ? " (current)" : ""}</span>` +
+      `<span class="badge">${bindingsLabel(name)}</span>`;
+    li.onclick = () => { if (name !== PROJECT) switchProjectInPlace(name); };
+    ul.appendChild(li);
+  }
+}
+document.getElementById("projectChip").onclick = () => { renderProjList(); openModal("projectModal"); };
+document.getElementById("projClose").onclick = () => closeModal("projectModal");
+document.getElementById("p_create").onclick = () => {
+  const raw = document.getElementById("p_new").value;
+  const name = normProject(raw);
+  if (!raw.trim()) { alert("Enter a project name."); return; }
+  document.getElementById("p_new").value = "";
+  switchProjectInPlace(name);
+};
+document.getElementById("p_rename").onclick = async () => {
+  const to = normProject(prompt("Rename project \"" + PROJECT + "\" to:", PROJECT) || "");
+  if (!to || to === PROJECT) return;
+  if (getRegistry().includes(to)) { alert("A project named \"" + to + "\" already exists."); return; }
+  // move data + bindings from PROJECT -> to, then navigate
+  const dataRaw = localStorage.getItem("keepInTouch.project." + PROJECT);
+  if (dataRaw) localStorage.setItem("keepInTouch.project." + to, dataRaw);
+  const sheetRaw = localStorage.getItem("keepInTouch.sheet." + PROJECT);
+  if (sheetRaw) localStorage.setItem("keepInTouch.sheet." + to, sheetRaw);
+  try {
+    const fh = await idbGet("file." + PROJECT);
+    if (fh) await idbSet("file." + to, fh);
+  } catch (e) { /* file binding optional */ }
+  // clean up old keys
+  localStorage.removeItem("keepInTouch.project." + PROJECT);
+  localStorage.removeItem("keepInTouch.sheet." + PROJECT);
+  unregisterProject(PROJECT);
+  registerProject(to);
+  gotoProject(to);
+};
+
+/* archived toggle */
+document.getElementById("toggleArchived").onclick = e => {
+  showArchived = !showArchived;
+  e.target.textContent = showArchived ? "Show active" : "Show archived";
+  e.target.classList.toggle("primary", showArchived);
+  hideToast();
+  render();
+};
+/* mode switch */
+document.querySelectorAll(".mode-btn").forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll(".mode-btn").forEach(x => x.classList.remove("active"));
+    b.classList.add("active");
+    state.mode = b.dataset.mode; save(); render();
+  };
+});
+/* close modal on backdrop click */
+document.querySelectorAll(".modal-backdrop").forEach(bd => {
+  bd.addEventListener("click", e => { if (e.target === bd) bd.classList.remove("open"); });
+});
+
+/* ---------- PWA: install + offline shell (X-PWA) ----------
+   All of this no-ops on file:// (a service worker needs https or localhost).
+   The SW caches only the app shell, never user data. */
+let deferredInstallPrompt = null;
+function isStandalone() {
+  return matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+function isIOS() {
+  const ua = navigator.userAgent;
+  return (/iphone|ipad|ipod/i.test(ua) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua))) && !isStandalone();
+}
+// Capture the install prompt as early as possible (before init paint).
+window.addEventListener("beforeinstallprompt", e => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  if (!isStandalone() && localStorage.getItem("keepInTouch.pwaInstalled") !== "1") {
+    document.getElementById("installBtn").hidden = false;
+  }
+});
+window.addEventListener("appinstalled", () => {
+  localStorage.setItem("keepInTouch.pwaInstalled", "1");
+  document.getElementById("installBtn").hidden = true;
+});
+async function registerServiceWorker() {
+  if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+    try { await navigator.serviceWorker.register("sw.js"); } catch (e) { /* non-fatal */ }
+  }
+}
+function maybeShowIosHint() {
+  if (isIOS() && localStorage.getItem("keepInTouch.pwaIosHintDismissed") !== "1") {
+    document.getElementById("pwaHint").hidden = false;
+  }
+}
+document.getElementById("installBtn").onclick = async () => {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  try { await deferredInstallPrompt.userChoice; } catch (e) {}
+  deferredInstallPrompt = null;
+  document.getElementById("installBtn").hidden = true;
+};
+document.getElementById("pwaHintClose").onclick = () => {
+  localStorage.setItem("keepInTouch.pwaIosHintDismissed", "1");
+  document.getElementById("pwaHint").hidden = true;
+};
+
+init();
+// PWA setup runs after init, never blocking first paint.
+registerServiceWorker();
+maybeShowIosHint();
+</script>
+</body>
+</html>
