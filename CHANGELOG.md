@@ -2,6 +2,12 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.17.0 — 2026-06-05
+### Fixed
+- **Your Google Sheet data now loads on other devices.** Connecting the Sheet is now a once-per-device action that applies to *all* your projects (previously each project needed its own connection, so a freshly-connected device showed only an empty local list). After connecting, if your current list is empty but the Sheet has others, the project picker opens automatically. To pull a specific list, open the project switcher and type its tab name (e.g. `ppl`) — it loads from the Sheet and is remembered.
+- **Cross-device project discovery without any backend redeploy.** Devices sharing one Sheet now sync their project list through a hidden `kit-registry` tab, so a project you create or open on one device appears on the others. (Tabs created entirely outside the app are also auto-listed *if* the backend is redeployed to v1.16+; otherwise just type the tab name once.)
+- **Settings closes immediately when you press Connect** (and the redundant "connected" pop-up is gone — the data appearing and the "saved ✓" badge are the confirmation).
+
 ## v1.16.0 — 2026-06-05
 ### Fixed
 - **Critical: Google Sheet sync no longer corrupts data.** After per-meeting notes were added, saving to the Sheet wrote malformed values (meeting history showed up as `[object Object]`) and could damage existing projects. The app now writes clean date values to the Sheet, and any already-corrupted cells are safely ignored on load. **This works without redeploying your Apps Script** — though redeploying (latest `backend/Code.gs`) is recommended so cross-device project discovery and the date-safe write also run server-side.

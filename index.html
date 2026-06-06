@@ -493,14 +493,15 @@
     <h2>Projects</h2>
     <div class="hint">A project is an isolated list. Each project has its own data and its own device/cloud bindings. Switching navigates to <code>?project=NAME</code>.</div>
     <ul class="proj-list" id="projList"></ul>
-    <label class="fld">New project name
-      <input type="text" id="p_new" placeholder="e.g. mentors" autocomplete="off">
+    <label class="fld">Open or create a project
+      <input type="text" id="p_new" placeholder="e.g. ppl — type a tab name from your Sheet to pull it" autocomplete="off">
     </label>
+    <div class="hint">Type the exact name of a tab in your connected Google Sheet to pull that list onto this device, or a new name to start a fresh one.</div>
     <div class="modal-actions" style="justify-content:space-between">
       <button class="btn" id="p_rename">Rename current…</button>
       <span>
         <button class="btn" id="projClose">Close</button>
-        <button class="btn primary" id="p_create">Create & switch</button>
+        <button class="btn primary" id="p_create">Open / create</button>
       </span>
     </div>
   </div>
@@ -642,10 +643,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.16.0";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.17.0";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.16.0: P0 Sheet-save corruption fix + version badge + paste import)
+   Keep In Touch — renderer (v1.17.0: device-wide Sheet cfg + registry-tab cross-device discovery, redeploy-free)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -742,15 +743,39 @@ let fileHandle = null;        // FileSystemFileHandle when connected to a projec
 let pendingHandle = null;     // stored handle whose permission lapsed; awaits a one-tap reconnect
 let source = "local";         // "sheet" | "file" | "local"
 
-/* ---------- Google Sheet backend config (per project) ----------
-   SHEET_CFG_KEY is set by setProjectContext() above so it tracks in-place
-   project switches. */
+/* ---------- Google Sheet backend config ----------
+   One Apps Script /exec URL serves ALL project tabs in the Sheet, so the
+   connection is stored DEVICE-WIDE (keepInTouch.sheet) and reused for every
+   project — connect once on a device and every project syncs. A per-project
+   key is still honored for back-compat / explicit per-project overrides.
+   SHEET_CFG_KEY is set by setProjectContext() so it tracks in-place switches. */
+const SHEET_CFG_GLOBAL_KEY = "keepInTouch.sheet";   // device-wide default
 function getSheetCfg() {
-  try { return JSON.parse(localStorage.getItem(SHEET_CFG_KEY)) || null; } catch (e) { return null; }
+  try {
+    const per = localStorage.getItem(SHEET_CFG_KEY);
+    if (per) return JSON.parse(per);
+    const glob = localStorage.getItem(SHEET_CFG_GLOBAL_KEY);   // fall back to device-wide
+    return glob ? JSON.parse(glob) : null;
+  } catch (e) { return null; }
 }
 function setSheetCfg(cfg) {
-  if (cfg && cfg.url) localStorage.setItem(SHEET_CFG_KEY, JSON.stringify(cfg));
-  else localStorage.removeItem(SHEET_CFG_KEY);
+  if (cfg && cfg.url) {
+    localStorage.setItem(SHEET_CFG_KEY, JSON.stringify(cfg));
+    localStorage.setItem(SHEET_CFG_GLOBAL_KEY, JSON.stringify(cfg));   // share with all projects
+  } else {
+    localStorage.removeItem(SHEET_CFG_KEY);
+    // leave the device-wide default unless the user explicitly disconnects everywhere
+  }
+}
+// A reserved tab that mirrors the set of known project names, so devices sharing
+// one Sheet discover each other's projects WITHOUT any backend redeploy (it rides
+// the normal project read/write API). Hidden from the switcher.
+const REGISTRY_TAB = "kit-registry";
+function sheetEndpointFor(cfg, project) {
+  const u = new URL(cfg.url);
+  u.searchParams.set("project", project);
+  if (cfg.token) u.searchParams.set("token", cfg.token);
+  return u.toString();
 }
 function sheetEndpoint(cfg) {
   const u = new URL(cfg.url);
@@ -1002,6 +1027,7 @@ async function loadProjectData({ canPrompt }) {
     else { showLoader("Syncing from Google Sheet…"); }
     try { await loadFromSheet(sheetCfg); }
     catch (e) { console.error("sheet load failed, using local cache", e); loadFromLocal(); }
+    discoverSheetProjects(sheetCfg).catch(() => {});   // keep cross-device project list in sync (non-blocking)
     return;
   }
   if (supportsFS) {
@@ -1131,21 +1157,47 @@ async function connectSheet(url, token) {
   await save();                                           // routes to scheduleSheetSave
   await discoverSheetProjects(cfg);                       // so other devices see existing tabs
   render(); updateProjectBar();
+  // If we connected on an EMPTY project but the Sheet holds OTHER projects, the
+  // user almost certainly wants their data — surface the picker so they can jump
+  // to it (the core "I connected but my data isn't here" fix).
+  const others = getRegistry().filter(n => n !== PROJECT && n !== REGISTRY_TAB);
+  if (!Object.keys(state.items).length && others.length) {
+    renderProjList(); openModal("projectModal");
+  }
 }
-// Ask the backend for the Sheet's tab names and register them locally, so a
-// fresh device discovers projects already in the Sheet. Silently no-ops on an
-// older backend that doesn't support ?action=projects.
+// Cross-device project discovery. Two mechanisms, both attempted:
+//  (1) ?action=projects — if the backend is the v1.16+ build, this returns ALL
+//      tab names (incl. tabs created outside this app, e.g. a pre-existing
+//      ppl-tier01). No-ops on older backends.
+//  (2) a shared REGISTRY_TAB read+written through the normal project API — works
+//      on ANY deployed backend (no redeploy), so projects created on one device
+//      propagate to others. Each device merges the union and writes it back.
 async function discoverSheetProjects(cfg) {
+  const found = new Set();
+  // (1) newer-backend tab enumeration
   try {
     const u = new URL(cfg.url);
     u.searchParams.set("action", "projects");
     if (cfg.token) u.searchParams.set("token", cfg.token);
-    const res = await fetch(u.toString(), { method: "GET" });
-    const data = await res.json();
-    if (Array.isArray(data.projects)) {
-      for (const name of data.projects) registerProject(normProject(name));
-    }
-  } catch (e) { /* old backend or offline — non-fatal */ }
+    const data = await (await fetch(u.toString())).json();
+    if (Array.isArray(data.projects)) data.projects.forEach(n => found.add(normProject(n)));
+  } catch (e) { /* old backend / offline — fall through to the registry tab */ }
+  // (2) registry-tab sync (redeploy-free)
+  try {
+    const data = await (await fetch(sheetEndpointFor(cfg, REGISTRY_TAB))).json();
+    Object.values((data && data.items) || {}).forEach(it => { if (it.name) found.add(normProject(it.name)); });
+  } catch (e) { /* non-fatal */ }
+  // merge discovered names with local registry, then publish the union back up
+  getRegistry().forEach(n => found.add(n));
+  found.delete(normProject(REGISTRY_TAB));           // never list the registry itself
+  found.delete("default");                            // default is implicit everywhere
+  for (const n of found) registerProject(n);
+  try {
+    const items = {};
+    [...found].forEach(n => { items[n] = { id: n, name: n, cadenceDays: 30, history: [], archived: false }; });
+    await fetch(sheetEndpointFor(cfg, REGISTRY_TAB), { method: "POST",
+      body: JSON.stringify({ schemaVersion: 1, project: REGISTRY_TAB, globalRemindDays: 3, mode: "auto", manualOrder: [], items }) });
+  } catch (e) { /* publish is best-effort */ }
 }
 async function onboardConnectSheet() {
   const url = document.getElementById("ob_sheet_url").value.trim();
@@ -2066,7 +2118,10 @@ document.getElementById("s_sheet_connect").onclick = async () => {
   const url = document.getElementById("s_sheet_url").value.trim();
   const token = document.getElementById("s_sheet_token").value.trim();
   if (!url) { alert("Paste the Web app URL first."); return; }
-  try { await connectSheet(url, token); hideLoader(); alert("Connected to Google Sheet. Changes now autosave there."); }
+  try {
+    closeModal("settingsModal");                 // close the panel as soon as we start
+    await connectSheet(url, token); hideLoader();
+  }
   catch (e) { hideLoader(); alert("Could not connect: " + e.message); }
 };
 document.getElementById("s_sheet_disconnect").onclick = () => {
@@ -2166,7 +2221,7 @@ function bindingsLabel(name) {
 function renderProjList() {
   const ul = document.getElementById("projList");
   ul.innerHTML = "";
-  const reg = getRegistry();
+  const reg = getRegistry().filter(n => n !== REGISTRY_TAB);   // hide the sync-plumbing tab
   if (!reg.length) ul.innerHTML = '<li style="cursor:default">No projects yet.</li>';
   for (const name of reg) {
     const li = document.createElement("li");
