@@ -2,6 +2,24 @@
 
 This is the only part I can't do for you: it runs under **your** Google account. Once deployed, the renderer talks to your private Sheet and the Sheet stays your human-editable database.
 
+---
+
+## ⚡ ALREADY DEPLOYED? Re-deploy to turn the daily email back on (~2 min, 4 clicks)
+
+> **Why:** the current `Code.gs` fixes a bug that broke the daily-reminder email for
+> anyone with logged meetings (it threw and silently skipped your tabs). Your live app
+> already works without this — it's **only** the email digest that needs the redeploy.
+> Your Sheet, your data, and the Web-app URL are all unchanged by this.
+
+1. Open your Sheet → **Extensions → Apps Script**.
+2. Select-all in the editor, delete, and paste the entire current `Code.gs` (next to this file).
+3. **Deploy → Manage deployments → ✏️ (edit) → Version: *New version* → Deploy.** (URL stays the same.)
+4. Run the **`installDailyReminder`** function once (Run menu / function dropdown) and approve the email permission.
+
+Done — you'll get the morning digest again. (First set your timezone if you never have: **Project Settings → Time zone**.) Everything below is the full first-time setup, for reference.
+
+---
+
 ## What you'll end up with
 - A **Google Sheet** (your private DB) — open it, click any cell, edit, autosaves.
 - An **Apps Script web app** behind a secret URL that the app reads/writes as JSON.
@@ -54,7 +72,7 @@ Get a once-a-day email listing who's due or overdue — across **all** your proj
 - Edit the code, then **Deploy → Manage deployments → ✏️ Edit → Version: New version → Deploy**. The URL stays the same.
 - If you added/changed reminder code, also re-run `installDailyReminder` once.
 
-> **Backend update (recommended, v1.16→v1.19):** paste the latest `Code.gs` and redeploy a new version. It (a) writes meeting history as dates even from newer app versions (defensive against the `[object Object]` corruption — the app also guards this client-side), (b) adds `?action=projects` so a freshly-connected device can list the Sheet's existing project tabs, and (c) coerces any cell Google Sheets auto-typed as a Date into plain `YYYY-MM-DD` on read (prevents the "Thu Apr 30 2026 … (Pacific Daylight Time)" garbage). Existing data and the URL are unaffected.
+> **Backend update (recommended):** paste the latest `Code.gs` and redeploy a new version (see the ⚡ quickstart at the top). The current script: (a) coerces meeting-history entries to plain `YYYY-MM-DD` on read/write (defensive against the `[object Object]` and "Thu Apr 30 2026 … (Pacific Daylight Time)" corruption classes — the app also guards these client-side); (b) adds `?action=projects` so a freshly-connected device can list the Sheet's existing project tabs; and (c) **fixes the daily-reminder email**, which previously threw on any contact with logged history and silently dropped that whole tab from the digest. Existing data and the URL are unaffected.
 
 ## Security notes
 - The deployment URL is an unguessable secret. Anyone with it can read/write your Sheet → don't paste it in public places.
