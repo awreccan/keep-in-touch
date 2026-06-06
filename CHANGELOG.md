@@ -2,6 +2,11 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.25.0 — 2026-06-06
+### Fixed (third-audit findings)
+- **Edits made on another device now stick.** Previously, changing a person's cadence, archive, or snooze on one device could be silently reverted when another device (with an older cached copy) synced. A normal Sheet load now takes the latest values from the Sheet for fields like cadence/archive/snooze, while still combining meeting history from both sides — so cross-device edits no longer fight each other.
+- **The reserved sync tab can't be opened as a project.** Typing or linking to the internal `kit-registry` name now safely falls back to the default project, so the behind-the-scenes cross-device project list can't be corrupted.
+
 ## v1.24.0 — 2026-06-06
 ### Fixed (final-audit findings)
 - **Meeting notes no longer get dropped when devices sync.** When merging your data with the Sheet, a note added on one device could be lost if another device had the same meeting date without a note. The merge now keeps the note from whichever side has one.

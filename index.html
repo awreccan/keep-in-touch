@@ -643,10 +643,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.24.0";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.25.0";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.24.0: note-aware union merge + JSON-import merges + first-install reload fix)
+   Keep In Touch — renderer (v1.25.0: cross-device scalar arbitration + reserved-tab guard)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -672,7 +672,12 @@ function hideLoader() { document.getElementById("loader").classList.remove("show
    "Reconnect" click. Switching in-place keeps the selecting click's gesture
    alive, so the project's binding loads in that same click. */
 const params = new URLSearchParams(location.search);
-function normProject(s) { return (s || "default").toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 64) || "default"; }
+function normProject(s) {
+  const n = (s || "default").toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 64) || "default";
+  // "kit-registry" is the reserved cross-device sync tab — never let a real project
+  // resolve to it (would corrupt the shared discovery registry). Remap to default.
+  return n === "kit-registry" ? "default" : n;
+}
 const IDB_DB = "keepInTouch";
 const IDB_STORE = "handles";
 
@@ -820,8 +825,10 @@ async function loadFromSheet(cfg) {
   // UNION the remote into whatever is already loaded (the local cache, loaded by
   // loadProjectData first) instead of hard-replacing — so a transient empty/sparse
   // Sheet can't wipe cached people, and locally-cached meeting NOTES survive (notes
-  // aren't stored in the Sheet). Mirrors connectSheet's non-destructive merge.
-  state = unionStates(state, mergeState(data));
+  // aren't stored in the Sheet). preferRemoteScalars: a steady-state load takes the
+  // Sheet's scalar fields (cadence/archive/snooze/etc) so an edit from ANOTHER device
+  // isn't shadowed by this device's stale cache — while still UNIONing history.
+  state = unionStates(state, mergeState(data), { preferRemoteScalars: true });
   source = "sheet";
 }
 let sheetSaveTimer = null;
@@ -945,7 +952,8 @@ function mergeState(raw) {
    - manualOrder: local order first, then any remote-only ids appended.
    - globalRemindDays / mode: prefer local.
    With an empty remote (first connect) the result equals local exactly. */
-function unionStates(local, remote) {
+function unionStates(local, remote, opts) {
+  const preferRemoteScalars = !!(opts && opts.preferRemoteScalars);
   const out = structuredClone(local);
   const rItems = (remote && remote.items) || {};
   for (const id of Object.keys(rItems)) {
@@ -954,7 +962,19 @@ function unionStates(local, remote) {
     // Union histories via normalizeHistory so a note on EITHER side is preserved
     // when the same date appears on both (its dedup does keepNote = note||prev.note).
     // Plain concat + normalize avoids the old first-seen-wins bug that dropped notes.
-    out.items[id].history = normalizeHistory([...(out.items[id].history || []), ...(r.history || [])]);
+    const mergedHistory = normalizeHistory([...(out.items[id].history || []), ...(r.history || [])]);
+    if (preferRemoteScalars) {
+      // Steady-state Sheet load: the Sheet is the shared source of truth, so a
+      // scalar edit (cadence/remind/archive/snooze/name) made on ANOTHER device
+      // wins here instead of being shadowed by this device's stale cache. (Local
+      // edits are already POSTed on change, so remote reflects them.) History is
+      // still unioned, never replaced — so nothing is dropped.
+      out.items[id] = Object.assign(structuredClone(r), { history: mergedHistory });
+    } else {
+      // Connect/import: keep local scalars (preserve what's in front of the user /
+      // push local up); only union history.
+      out.items[id].history = mergedHistory;
+    }
   }
   const order = (local.manualOrder || []).slice();
   for (const id of (remote && remote.manualOrder) || []) {
