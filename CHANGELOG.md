@@ -2,6 +2,11 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.11.0 — 2026-06-05
+### Added
+- **Per-meeting notes (F2).** Each logged meeting can carry an optional note (e.g. "coffee, talked about the new role"). Add one when you log a meeting, or tap "+ note" / "Edit note" on any past entry in the History view. One-tap "✔ Met today" stays exactly as fast — notes are always optional. Notes are included in CSV export.
+- **Save status indicator.** A small "saving… → saved ✓" (and "save failed" if something goes wrong) now appears in the project bar after every change, so you always know your data made it — especially useful with the Google Sheet backend.
+
 ## v1.10.0 — 2026-06-05
 ### Fixed
 - **Connecting a Google Sheet no longer wipes data you already have.** Previously, loading a list (e.g. from a file) and then connecting a Sheet for the first time would overwrite your list with the empty Sheet. Now connecting **merges** — your existing people are kept and pushed *up* to the Sheet, and if the Sheet already has data the two are unioned (meeting histories combined, never dropped). First connect = your data is saved to the Sheet, exactly as expected.

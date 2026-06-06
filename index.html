@@ -103,6 +103,18 @@
   .src-dot.local { background: var(--due-soon); }
   .link-btn { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.8125rem; padding: 0; }
 
+  /* Save-status indicator (saving / saved / failed) */
+  .save-status {
+    font-size: 0.75rem; font-weight: 600; padding: 0.05rem 0.5rem; border-radius: 999px;
+    opacity: 0; transform: translateY(2px); transition: opacity .2s, transform .2s; white-space: nowrap;
+  }
+  .save-status.show { opacity: 1; transform: translateY(0); }
+  .save-status.saving { color: var(--text-dim); background: var(--surface-2); }
+  .save-status.saved { color: var(--on-track); background: color-mix(in srgb, var(--on-track) 14%, transparent); }
+  .save-status.failed { color: var(--overdue); background: color-mix(in srgb, var(--overdue) 16%, transparent); }
+  .save-status.saved.pulse { animation: savedpulse .5s ease; }
+  @keyframes savedpulse { 0% { transform: scale(.8); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+
   .modes { display: flex; gap: 0.4rem; margin-top: 0.7rem; background: var(--surface-2); padding: 0.25rem; border-radius: 999px; }
   .mode-btn {
     flex: 1; padding: 0.5rem; border: none; background: transparent;
@@ -272,8 +284,14 @@
     display: flex; justify-content: space-between; align-items: center;
     padding: 0.4rem 0; border-bottom: 1px solid var(--border); font-size: 0.875rem;
   }
-  .hist-list li .hist-row-actions { display: flex; gap: 0.35rem; }
+  .hist-list li .hist-row-actions { display: flex; gap: 0.35rem; flex: none; }
+  .hist-list li .hist-row-main { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; flex: 1; }
   .hist-edit-input { padding: 0.3rem 0.4rem; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 7px; font-size: 0.875rem; font-weight: 600; }
+  .hist-note { font-size: 0.8125rem; color: var(--text-dim); line-height: 1.35; white-space: pre-wrap; word-break: break-word; }
+  .hist-addnote { align-self: flex-start; font-size: 0.75rem; }
+  .hist-note-input { width: 100%; margin-top: 0.2rem; padding: 0.35rem 0.45rem; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 7px; font-size: 0.8125rem; font-family: inherit; resize: vertical; }
+  /* Add/Edit & history textareas inherit the field look */
+  label.fld textarea { width: 100%; margin-top: 0.3rem; padding: 0.6rem; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 9px; font-size: 1rem; font-family: inherit; resize: vertical; }
   .row2 { display: flex; gap: 0.5rem; }
   .row2 > * { flex: 1; }
   .hint { font-size: 0.75rem; color: var(--text-dim); margin: -0.4rem 0 0.8rem; line-height: 1.4; }
@@ -321,6 +339,7 @@
     Project: <button class="project-chip" id="projectChip" title="Switch or create a project">default ▾</button>
     <button class="link-btn" id="connectBtn">Connect file (desktop)</button>
     <span id="srcLabel"></span>
+    <span class="save-status" id="saveStatus" aria-live="polite"></span>
   </div>
   <div class="modes">
     <button class="mode-btn active" data-mode="auto">Auto · due / overdue</button>
@@ -416,6 +435,9 @@
       </label>
       <button class="btn primary" id="h_add" style="margin-bottom:0.8rem">Log it</button>
     </div>
+    <label class="fld">Note (optional)
+      <textarea id="h_note" rows="2" maxlength="280" autocomplete="off" autocapitalize="sentences" spellcheck="true" enterkeyhint="done" placeholder="e.g. coffee, talked about the new role"></textarea>
+    </label>
     <ul class="hist-list" id="histList"></ul>
     <div class="modal-actions">
       <button class="btn" id="histClose">Close</button>
@@ -506,7 +528,7 @@
 "use strict";
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.10.0: first-run onboarding + merge-on-connect (no data loss))
+   Keep In Touch — renderer (v1.11.0: per-meeting notes + save-status indicator)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -629,11 +651,13 @@ async function loadFromSheet(cfg) {
 let sheetSaveTimer = null;
 function scheduleSheetSave(cfg) {
   localStorage.setItem(LS_KEY, JSON.stringify(state));  // offline cache / fallback
+  setSaveStatus("saving");
   if (sheetSaveTimer) clearTimeout(sheetSaveTimer);
   sheetSaveTimer = setTimeout(() => {
     // text/plain body avoids a CORS preflight Apps Script can't answer
     fetch(sheetEndpoint(cfg), { method: "POST", body: JSON.stringify(state) })
-      .catch(err => console.error("sheet save failed (cached locally)", err));
+      .then(res => { if (!res.ok) throw new Error("HTTP " + res.status); setSaveStatus("saved"); })
+      .catch(err => { console.error("sheet save failed (cached locally)", err); setSaveStatus("failed"); });
   }, 800);
 }
 
@@ -680,9 +704,29 @@ async function verifyPermission(handle, write) {
   return false;
 }
 
+// Canonicalize a history array to Array<{date, note?}>: tolerate bare strings,
+// mixed/legacy shapes, and hand-edited Sheet cells; dedupe by date (prefer a
+// non-empty note); sort ascending. Self-healing — no migration flag (F2).
+function normalizeHistory(arr) {
+  if (!Array.isArray(arr)) return [];
+  const byDate = new Map();
+  for (const el of arr) {
+    const date = typeof el === "string" ? el : (el && el.date);
+    if (!date || typeof date !== "string") continue;   // drop malformed
+    const note = (el && typeof el === "object" && el.note) ? String(el.note) : "";
+    const prev = byDate.get(date);
+    const keepNote = note || (prev && prev.note) || "";
+    byDate.set(date, keepNote ? { date, note: keepNote } : { date });
+  }
+  return [...byDate.values()].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+}
+
 function mergeState(raw) {
   const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-  return Object.assign(structuredClone(DEFAULT_STATE), parsed, { project: PROJECT });
+  const merged = Object.assign(structuredClone(DEFAULT_STATE), parsed, { project: PROJECT });
+  // Single chokepoint for ALL ingest paths (sheet/file/local/import): normalize history.
+  for (const it of Object.values(merged.items || {})) it.history = normalizeHistory(it.history);
+  return merged;
 }
 
 /* Union two states without losing data — used when CONNECTING a Sheet so the
@@ -737,11 +781,32 @@ function loadFromLocal() {
   source = "local";
 }
 
+/* ---------- save-status indicator (INCOMING-6) ----------
+   Reflects the save lifecycle in the project bar: saving… → saved ✓ → (auto-hide),
+   or save failed. Covers all three backends. */
+let saveStatusTimer = null;
+function setSaveStatus(kind) {
+  const el = document.getElementById("saveStatus");
+  if (!el) return;
+  if (saveStatusTimer) { clearTimeout(saveStatusTimer); saveStatusTimer = null; }
+  el.className = "save-status";   // reset
+  if (kind === "saving") {
+    el.textContent = "saving…"; el.classList.add("show", "saving");
+  } else if (kind === "saved") {
+    el.textContent = "saved ✓"; el.classList.add("show", "saved", "pulse");
+    saveStatusTimer = setTimeout(() => el.classList.remove("show"), 1600);
+  } else if (kind === "failed") {
+    el.textContent = "save failed"; el.classList.add("show", "failed");
+    saveStatusTimer = setTimeout(() => el.classList.remove("show"), 4000);
+  }
+}
+
 async function save() {
   if (source === "sheet") {
     const cfg = getSheetCfg();
-    if (cfg) { scheduleSheetSave(cfg); return; }
+    if (cfg) { scheduleSheetSave(cfg); return; }   // status driven inside scheduleSheetSave
   }
+  setSaveStatus("saving");
   if (source === "file" && fileHandle) {
     try {
       // Lazily upgrade read→readwrite. save() is only ever called from a user
@@ -750,18 +815,26 @@ async function save() {
       localStorage.setItem(LS_KEY, JSON.stringify(state));
       if (!(await verifyPermission(fileHandle, true))) {
         console.warn("write permission denied; kept local mirror only");
+        setSaveStatus("failed");
         return;
       }
       const w = await fileHandle.createWritable();
       await w.write(JSON.stringify(state, null, 2));
       await w.close();
+      setSaveStatus("saved");
       return;
     } catch (e) {
       console.error("file write failed, falling back to local", e);
       source = "local"; updateProjectBar();
     }
   }
-  localStorage.setItem(LS_KEY, JSON.stringify(state));
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+    setSaveStatus("saved");
+  } catch (e) {
+    console.error("localStorage write failed", e);
+    setSaveStatus("failed");
+  }
 }
 
 async function connectProjectFile() {
@@ -1037,10 +1110,15 @@ function todayISO() { return new Date().toISOString().slice(0, 10); }
 function parseISO(s) { return s ? new Date(s + "T00:00:00") : null; }
 function daysBetween(a, b) { return Math.round((b - a) / MS_DAY); }
 
+// history entries are {date, note?} (normalized on ingest). lastMet returns the
+// latest date STRING so nextDue/daysUntilDue/statusOf stay unchanged.
+const byDateAsc = (a, b) => histDate(a) < histDate(b) ? -1 : histDate(a) > histDate(b) ? 1 : 0;
 function lastMet(item) {
   if (!item.history || !item.history.length) return null;
-  return item.history.slice().sort().at(-1);
+  return item.history.slice().sort(byDateAsc).at(-1).date;
 }
+function histDates(item) { return item.history.map(h => h.date); }
+function noteFor(item, date) { const e = item.history.find(h => h.date === date); return (e && e.note) || ""; }
 /* Human "time ago" for a YYYY-MM-DD date: today / yesterday / N days ago /
    N weeks ago / N months ago / N years ago. Returns "" for null. */
 function humanizeRelative(dateISO) {
@@ -1308,12 +1386,25 @@ function renderBatch() {
 }
 
 /* ---------- actions ---------- */
-function logMeeting(id, dateISO) {
+// Log (or enrich) a meeting on a date. Same-day re-log with a note enriches the
+// existing entry rather than duplicating it; one entry per calendar day.
+function logMeeting(id, dateISO, note) {
   const item = state.items[id];
   if (!item) return;
-  if (!item.history.includes(dateISO)) item.history.push(dateISO); // append-only
-  item.history.sort();
+  const n = (note || "").trim();
+  const existing = item.history.find(h => h.date === dateISO);
+  if (existing) { if (n) existing.note = n; }
+  else item.history.push(n ? { date: dateISO, note: n } : { date: dateISO });
+  item.history.sort(byDateAsc);
   save(); render();
+}
+// Set/clear a note on an existing meeting entry.
+function setMeetingNote(id, date, note) {
+  const item = state.items[id]; if (!item) return;
+  const e = item.history.find(h => h.date === date); if (!e) return;
+  const n = (note || "").trim();
+  if (n) e.note = n; else delete e.note;
+  save(); renderHist(); render();
 }
 
 /* ---------- history entry date extractor (F8; forward-compat with F2 notes) ----------
@@ -1370,13 +1461,10 @@ function editHistEntry(idx, newISO) {
   const item = state.items[histId]; if (!item) return;
   const entry = item.history[idx];
   if (!newISO || newISO === histDate(entry)) { editingHistDate = null; renderHist(); return; }
-  const updated = typeof entry === "string" ? newISO : { ...entry, date: newISO };
-  const next = item.history.slice(); next[idx] = updated;
-  // dedup by date (keep first), then sort by date
-  const seen = new Set(); const deduped = [];
-  for (const e of next) { const d = histDate(e); if (seen.has(d)) continue; seen.add(d); deduped.push(e); }
-  deduped.sort((a, b) => histDate(a).localeCompare(histDate(b)));
-  item.history = deduped; editingHistDate = null;
+  const next = item.history.slice();
+  next[idx] = { ...entry, date: newISO };   // keep the note, change the date
+  item.history = normalizeHistory(next);     // dedup-by-date (prefers non-empty note) + sort
+  editingHistDate = null;
   save(); renderHist(); render();
 }
 function deleteHistEntry(idx) {
@@ -1539,13 +1627,13 @@ document.getElementById("editSave").onclick = () => {
   if (editingId) {
     const item = state.items[editingId];
     item.name = name; item.cadenceDays = cadence; item.remindDays = remindDays;
-    if (lastMetVal && lastMet(item) !== lastMetVal && !item.history.includes(lastMetVal)) {
-      item.history.push(lastMetVal); item.history.sort();
+    if (lastMetVal && lastMet(item) !== lastMetVal && !histDates(item).includes(lastMetVal)) {
+      item.history.push({ date: lastMetVal }); item.history.sort(byDateAsc);
     }
   } else {
     const id = uid();
     state.items[id] = { id, name, cadenceDays: cadence, remindDays,
-      history: lastMetVal ? [lastMetVal] : [], archived: false };
+      history: lastMetVal ? [{ date: lastMetVal }] : [], archived: false };
     state.manualOrder.push(id);
   }
   save(); render(); closeModal("editModal");
@@ -1553,12 +1641,14 @@ document.getElementById("editSave").onclick = () => {
 
 /* history modal */
 let histId = null;
-let editingHistDate = null;   // ISO date of the row currently being edited, or null
+let editingHistDate = null;   // ISO date of the row whose DATE is being edited, or null
+let editingNoteDate = null;   // ISO date of the row whose NOTE is being edited, or null
 function openHistory(id) {
   histId = id;
-  editingHistDate = null;
+  editingHistDate = null; editingNoteDate = null;
   document.getElementById("histTitle").textContent = "History · " + state.items[id].name;
   document.getElementById("h_date").value = todayISO();
+  document.getElementById("h_note").value = "";
   renderHist(); openModal("histModal");
 }
 function renderHist() {
@@ -1566,17 +1656,30 @@ function renderHist() {
   const ul = document.getElementById("histList"); ul.innerHTML = "";
   if (!item.history.length) { ul.innerHTML = '<li style="color:var(--text-dim)">No meetings logged yet.</li>'; return; }
   // Pair each entry with its original index, then show most-recent first.
-  const pairs = item.history.map((entry, idx) => ({ d: histDate(entry), idx }));
+  const pairs = item.history.map((entry, idx) => ({ d: entry.date, note: entry.note || "", idx }));
   pairs.sort((a, b) => b.d.localeCompare(a.d));
-  for (const { d, idx } of pairs) {
+  for (const { d, note, idx } of pairs) {
     const li = document.createElement("li");
+    li.dataset.d = d;
     if (editingHistDate === d) {
+      // date editor (F8)
       li.innerHTML = `<input type="date" class="hist-edit-input" value="${d}">` +
         `<span class="hist-row-actions">` +
         `<button class="mini accent" data-save="${idx}">Save</button>` +
         `<button class="mini" data-cancel="1">Cancel</button></span>`;
+    } else if (editingNoteDate === d) {
+      // note editor (F2) — inline reveal, not prompt()
+      li.innerHTML = `<div class="hist-row-main"><span>${d}</span>` +
+        `<textarea class="hist-note-input" rows="2" maxlength="280" autocomplete="off" ` +
+        `autocapitalize="sentences" spellcheck="true" enterkeyhint="done" ` +
+        `placeholder="e.g. coffee, talked about the new role">${escapeHtml(note)}</textarea></div>` +
+        `<span class="hist-row-actions">` +
+        `<button class="mini accent" data-savenote="1">Save note</button>` +
+        `<button class="mini" data-cancelnote="1">Cancel</button></span>`;
     } else {
-      li.innerHTML = `<span>${d} <span style="color:var(--text-dim)">· ${humanizeRelative(d)}</span></span>` +
+      const noteHtml = note ? `<div class="hist-note">${escapeHtml(note)}</div>` : "";
+      li.innerHTML = `<div class="hist-row-main"><span>${d} <span style="color:var(--text-dim)">· ${humanizeRelative(d)}</span></span>${noteHtml}` +
+        `<button class="hist-addnote link-btn" data-notebtn="1">${note ? "Edit note" : "+ note"}</button></div>` +
         `<span class="hist-row-actions">` +
         `<button class="mini" data-edit="${idx}">Edit</button>` +
         `<button class="mini" data-del="${idx}">Delete</button></span>`;
@@ -1586,19 +1689,29 @@ function renderHist() {
 }
 document.getElementById("h_add").onclick = () => {
   const d = document.getElementById("h_date").value;
-  if (d) { editingHistDate = null; logMeeting(histId, d); renderHist(); }
+  const note = document.getElementById("h_note").value.trim();
+  if (d) { editingHistDate = null; editingNoteDate = null; logMeeting(histId, d, note); document.getElementById("h_note").value = ""; renderHist(); }
 };
 document.getElementById("histList").addEventListener("click", e => {
-  const btn = e.target.closest("[data-edit],[data-del],[data-save],[data-cancel]"); if (!btn) return;
+  const btn = e.target.closest("[data-edit],[data-del],[data-save],[data-cancel],[data-notebtn],[data-savenote],[data-cancelnote]");
+  if (!btn) return;
   const li = e.target.closest("li");
   const item = state.items[histId];
+  const date = li.dataset.d;
   if (btn.dataset.del != null) { deleteHistEntry(+btn.dataset.del); }
   else if (btn.dataset.edit != null) {
-    editingHistDate = histDate(item.history[+btn.dataset.edit]); renderHist();
+    editingNoteDate = null; editingHistDate = histDate(item.history[+btn.dataset.edit]); renderHist();
     document.querySelector(".hist-edit-input")?.focus();
   } else if (btn.dataset.save != null) {
     const inp = li.querySelector(".hist-edit-input"); editHistEntry(+btn.dataset.save, inp ? inp.value : "");
   } else if (btn.dataset.cancel != null) { editingHistDate = null; renderHist(); }
+  else if (btn.dataset.notebtn != null) {
+    editingHistDate = null; editingNoteDate = date; renderHist();
+    document.querySelector(".hist-note-input")?.focus();
+  } else if (btn.dataset.savenote != null) {
+    const ta = li.querySelector(".hist-note-input"); editingNoteDate = null;
+    setMeetingNote(histId, date, ta ? ta.value.trim() : "");
+  } else if (btn.dataset.cancelnote != null) { editingNoteDate = null; renderHist(); }
 });
 // Keyboard: Enter commits the edit row, Escape cancels (no mouse trip needed).
 document.getElementById("histList").addEventListener("keydown", e => {
