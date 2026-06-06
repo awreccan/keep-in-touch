@@ -643,10 +643,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.22.0";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.23.0";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.22.0: guard renderHist/renderTimeline against a missing histId)
+   Keep In Touch — renderer (v1.23.0: auto-heal — re-save cleaned data to Sheet on load when corruption dropped)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -922,11 +922,18 @@ function normalizeHistory(arr) {
   return [...byDate.values()].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
 }
 
+let healedCorruptionOnLoad = false;   // set when mergeState drops corrupt history tokens
 function mergeState(raw) {
   const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
   const merged = Object.assign(structuredClone(DEFAULT_STATE), parsed, { project: PROJECT });
   // Single chokepoint for ALL ingest paths (sheet/file/local/import): normalize history.
-  for (const it of Object.values(merged.items || {})) it.history = normalizeHistory(it.history);
+  // If normalization shrinks any item's history, we dropped corrupt tokens (e.g. the old
+  // "[object Object]" / scrambled-Date garbage) — flag it so callers can persist the heal.
+  for (const it of Object.values(merged.items || {})) {
+    const before = Array.isArray(it.history) ? it.history.length : 0;
+    it.history = normalizeHistory(it.history);
+    if (it.history.length < before) healedCorruptionOnLoad = true;
+  }
   return merged;
 }
 
@@ -1075,8 +1082,13 @@ async function loadProjectData({ canPrompt }) {
     if (Object.keys(state.items).length) { render(); updateProjectBar(); hideLoader(); }
     else { showLoader("Syncing from Google Sheet…"); }
     sheetSyncError = null;
+    healedCorruptionOnLoad = false;
     try {
       await loadFromSheet(sheetCfg);   // unions remote into the cache; sets source="sheet"
+      // If the Sheet held corrupt history (old [object Object] / scrambled-Date garbage),
+      // mergeState dropped it — write the cleaned data straight back so the Sheet
+      // self-heals just by opening it (no edit required, on any device).
+      if (healedCorruptionOnLoad) { console.log("Healed corrupt history on load — re-saving clean data."); save(); }
     } catch (e) {
       console.error("sheet load failed, using local cache", e);
       // Keep the device Sheet-BOUND (source="sheet") so saves still POST and we

@@ -2,6 +2,10 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.23.0 — 2026-06-06
+### Fixed
+- **Corrupted data now cleans itself the moment you open the project — no edit needed.** Previously, garbage history cells (from the old `[object Object]` / scrambled-date bugs) were dropped in-app on load but only written back to your Sheet on your next change. Now, if the app detects and heals corruption while loading, it immediately re-saves the cleaned data to the Sheet. Open the affected project on any device and the bad cells fix themselves automatically.
+
 ## v1.22.0 — 2026-06-06
 ### Fixed
 - **Hardened the History view against an edge-case crash.** If the history/timeline ever rendered for a person who'd just been removed (a stale reference), it could throw. Both now no-op safely instead. (Surfaced by a real end-to-end backend test.)
