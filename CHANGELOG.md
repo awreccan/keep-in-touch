@@ -2,6 +2,11 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.21.0 — 2026-06-06
+### Added / Fixed (final audit items)
+- **Meeting notes now sync across devices via the Sheet.** Notes are stored in a new `notes` column (as a compact per-date map), so a note you add on your computer shows up on your phone and vice-versa. The human-readable `history` cell stays plain dates. **Requires redeploying `backend/Code.gs`.**
+- **Renamed or removed projects stop coming back.** Previously a project you renamed away from could reappear in the switcher on the next sync. Removed names are now tombstoned so cross-device discovery won't resurrect them (re-creating a project with that name clears the tombstone).
+
 ## v1.20.0 — 2026-06-06
 ### Fixed (from an adversarial audit of the sync/PWA paths)
 - **Reloading a Sheet-backed project no longer loses data.** The app used to overwrite everything with whatever the Sheet returned on each load — so meeting **notes** (which the Sheet doesn't store) and any people that existed only on this device were silently dropped. Loads now *merge* with what you have, keeping notes and local-only people while pulling in the Sheet's additions.

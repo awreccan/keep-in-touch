@@ -24,7 +24,7 @@
  */
 
 var SHARED_TOKEN = ""; // optional; if set, renderer must send ?token=...
-var HEADERS = ["id", "name", "cadenceDays", "lastMet", "history", "remindDays", "archived", "rank", "snoozedUntil", "suggestDismissed"];
+var HEADERS = ["id", "name", "cadenceDays", "lastMet", "history", "remindDays", "archived", "rank", "snoozedUntil", "suggestDismissed", "notes"];
 
 function doGet(e) {
   return handle(e, "GET");
@@ -95,8 +95,12 @@ function readState(sheet, project) {
     if (!id) id = "p_row" + r;           // human added a name without id
     // history may be one date-typed cell, or comma/space-joined dates; coerce Dates first
     var historyRaw = cellToText(row[4]);
-    var history = historyRaw ? historyRaw.split(/[,\s]+/).map(cellToText).filter(String) : [];
-    history.sort();
+    var dates = historyRaw ? historyRaw.split(/[,\s]+/).map(cellToText).filter(String) : [];
+    dates.sort();
+    // notes column (10) holds a JSON map {date: note}; reattach as {date, note?} objects
+    var notesMap = {};
+    try { var nm = JSON.parse(String(row[10] || "").trim() || "{}"); if (nm && typeof nm === "object") notesMap = nm; } catch (e) {}
+    var history = dates.map(function (d) { return notesMap[d] ? { date: d, note: String(notesMap[d]) } : { date: d }; });
     var item = {
       id: id,
       name: name,
@@ -136,9 +140,16 @@ function writeState(sheet, state) {
   var rows = [HEADERS];
   Object.keys(items).forEach(function (id) {
     var it = items[id];
-    // history entries may be plain ISO strings (legacy) or {date,note} objects (v1.11+);
-    // the Sheet stores DATES only — extract them so a cell never becomes "[object Object]".
-    var history = (it.history || []).map(histDateOf).filter(String).sort();
+    // history entries may be plain ISO strings (legacy) or {date,note} objects (v1.11+).
+    // The history cell stays human-readable DATES; per-date notes go in the notes
+    // column as a JSON map {date: note} so notes round-trip across devices.
+    var entries = (it.history || []);
+    var history = entries.map(histDateOf).filter(String).sort();
+    var notesMap = {};
+    entries.forEach(function (e) {
+      if (e && typeof e === "object" && e.date && e.note) notesMap[e.date] = String(e.note);
+    });
+    var notesCell = Object.keys(notesMap).length ? JSON.stringify(notesMap) : "";
     var lastMet = history.length ? history[history.length - 1] : "";
     var rank = order.indexOf(id);
     rows.push([
@@ -151,7 +162,8 @@ function writeState(sheet, state) {
       it.archived ? true : false,
       rank === -1 ? "" : rank,
       it.snoozedUntil || "",
-      it.suggestDismissed == null ? "" : it.suggestDismissed
+      it.suggestDismissed == null ? "" : it.suggestDismissed,
+      notesCell
     ]);
   });
   sheet.clearContents();

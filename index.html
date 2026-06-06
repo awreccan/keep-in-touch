@@ -643,10 +643,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.20.0";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.21.0";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.20.0: union-on-load + Sheet error guards + PWA auto-reload — audit fixes)
+   Keep In Touch — renderer (v1.21.0: notes persist to Sheet + project-tombstones — final audit fixes)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -699,15 +699,28 @@ setProjectContext(hadProjectParam ? params.get("project") : (getLastProject() ||
 
 /* ---------- project registry (list of known projects, for the switcher) ---- */
 const REGISTRY_KEY = "keepInTouch.projects";   // app-level index of project names (not data)
+const TOMBSTONE_KEY = "keepInTouch.removedProjects";   // names the user removed/renamed-away
+function getTombstones() {
+  try { return JSON.parse(localStorage.getItem(TOMBSTONE_KEY)) || []; } catch (e) { return []; }
+}
 function getRegistry() {
   try { return JSON.parse(localStorage.getItem(REGISTRY_KEY)) || []; } catch (e) { return []; }
 }
 function registerProject(name) {
+  if (getTombstones().includes(name)) return;   // don't resurrect a removed project
   const reg = getRegistry();
   if (!reg.includes(name)) { reg.push(name); reg.sort(); localStorage.setItem(REGISTRY_KEY, JSON.stringify(reg)); }
 }
 function unregisterProject(name) {
   localStorage.setItem(REGISTRY_KEY, JSON.stringify(getRegistry().filter(n => n !== name)));
+  // Tombstone it so cross-device discovery (discoverSheetProjects) can't re-add it.
+  const t = getTombstones();
+  if (!t.includes(name)) { t.push(name); localStorage.setItem(TOMBSTONE_KEY, JSON.stringify(t)); }
+}
+// Re-registering a project the user explicitly re-creates clears its tombstone.
+function clearTombstone(name) {
+  const t = getTombstones().filter(n => n !== name);
+  localStorage.setItem(TOMBSTONE_KEY, JSON.stringify(t));
 }
 function gotoProject(name) {
   const n = normProject(name);
@@ -812,13 +825,17 @@ async function loadFromSheet(cfg) {
   source = "sheet";
 }
 let sheetSaveTimer = null;
-// The Sheet backend stores history as DATES in one cell. Flatten {date,note}
-// objects to date strings BEFORE POST so it's correct even against an
-// already-deployed older backend (notes aren't stored in the Sheet anyway).
+// Prepare state for POST. History entries are kept as {date, note?} objects so a
+// v1.20+ backend persists notes (in its notes column); an OLDER backend safely
+// extracts just the date via histDateOf and ignores the note. Either way we
+// guarantee every entry is {date:"YYYY-MM-DD"} with a valid date (drops any
+// non-date corruption) so the Sheet cell can never become "[object Object]".
 function sheetSafeState() {
   const out = structuredClone(state);
   for (const it of Object.values(out.items || {})) {
-    it.history = (it.history || []).map(h => (h && typeof h === "object") ? (h.date || "") : h).filter(Boolean);
+    it.history = (it.history || [])
+      .map(h => (h && typeof h === "object") ? h : { date: h })
+      .filter(h => typeof h.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(h.date));
   }
   return out;
 }
@@ -1109,6 +1126,7 @@ async function switchProjectInPlace(name) {
   const target = normProject(name);
   if (target === PROJECT) { closeModal("projectModal"); return; }
   setProjectContext(target);
+  clearTombstone(PROJECT);        // explicit user intent — un-tombstone if re-creating
   registerProject(PROJECT);
   rememberLastProject(PROJECT);   // so a stripped-query reload restores this one
   // reset per-project runtime state
