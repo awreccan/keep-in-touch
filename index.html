@@ -643,10 +643,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.30.0";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.31.0";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.30.0: audit-8 fix — Enter only auto-submits a single-primary modal (no wrong-button fire))
+   Keep In Touch — renderer (v1.31.0: audit-9 fix — reject impossible calendar dates (isRealDate) so they can't render as "In NaNd")
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -923,7 +923,7 @@ function sheetSafeState() {
   for (const it of Object.values(out.items || {})) {
     it.history = (it.history || [])
       .map(h => (h && typeof h === "object") ? h : { date: h })
-      .filter(h => typeof h.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(h.date));
+      .filter(h => isRealDate(h.date));
   }
   return out;
 }
@@ -1030,6 +1030,16 @@ async function verifyPermission(handle, write) {
 // Canonicalize a history array to Array<{date, note?}>: tolerate bare strings,
 // mixed/legacy shapes, and hand-edited Sheet cells; dedupe by date (prefer a
 // non-empty note); sort ascending. Self-healing — no migration flag (F2).
+// A real YYYY-MM-DD calendar date: correct SHAPE *and* a date that actually exists.
+// The shape regex alone passes impossible values like "2026-13-45" / "2026-02-30",
+// which then parse to NaN and render as "In NaNd" + silently drop from due-math
+// (round-9 fix). Round-tripping the parsed components rejects out-of-range month/day.
+function isRealDate(s) {
+  if (typeof s !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const [y, m, d] = s.split("-").map(Number);
+  const dt = new Date(s + "T00:00:00");
+  return !isNaN(dt.getTime()) && dt.getFullYear() === y && dt.getMonth() + 1 === m && dt.getDate() === d;
+}
 // Normalize a history array to deduped, sorted {date, note?} entries. Pass an
 // optional `stats` object to learn whether any INVALID (non-date) token was
 // dropped — that signals real corruption (vs. a benign same-date dedup).
@@ -1038,9 +1048,9 @@ function normalizeHistory(arr, stats) {
   const byDate = new Map();
   for (const el of arr) {
     const date = typeof el === "string" ? el : (el && el.date);
-    // Must be a real YYYY-MM-DD date — drops legacy junk AND old-corruption tokens
-    // like "[object" / "Object]," that the v1.11 Sheet bug left behind.
-    if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) { if (stats) stats.droppedInvalid = true; continue; }
+    // Must be a real YYYY-MM-DD date — drops legacy junk, old-corruption tokens
+    // like "[object" / "Object]," (v1.11 Sheet bug), AND impossible dates (2026-13-45).
+    if (!isRealDate(date)) { if (stats) stats.droppedInvalid = true; continue; }
     const note = (el && typeof el === "object" && el.note) ? String(el.note) : "";
     const prev = byDate.get(date);
     const keepNote = note || (prev && prev.note) || "";
@@ -1067,12 +1077,12 @@ function mergeState(raw) {
     // stores it as a raw cell with no date validation, so a poisoned/garbled value
     // could otherwise inject markup at the render sink AND make a person look
     // permanently snoozed. Drop anything that isn't a real YYYY-MM-DD date.
-    if (it.snoozedUntil != null && !/^\d{4}-\d{2}-\d{2}$/.test(String(it.snoozedUntil))) {
+    if (it.snoozedUntil != null && !isRealDate(String(it.snoozedUntil))) {
       delete it.snoozedUntil; delete it.snoozeReason;
     }
     // archivedAt is local-only + rendered into the card meta — validate it the same
     // way so a malformed/poisoned value can neither inject markup nor display garbage.
-    if (it.archivedAt != null && !/^\d{4}-\d{2}-\d{2}$/.test(String(it.archivedAt))) delete it.archivedAt;
+    if (it.archivedAt != null && !isRealDate(String(it.archivedAt))) delete it.archivedAt;
     // COERCE numeric scalars to real numbers on ingest. cadenceDays/remindDays/
     // suggestDismissed render unescaped into card-meta innerHTML (`every ${cadenceDays}d`),
     // so a crafted JSON/paste import with markup in those fields would be an XSS sink.
@@ -2418,7 +2428,7 @@ function openHistory(id) {
 /* ---------- history timeline viz (P3-F8) ---------- */
 // Clean ascending list of valid ISO meeting dates (tolerates legacy/import junk).
 function sanitizeHistory(item) {
-  const ds = histDates(item).filter(d => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d) && !isNaN(parseISO(d)));
+  const ds = histDates(item).filter(isRealDate);
   return [...new Set(ds)].sort();
 }
 function buildTimelineModel(item) {
@@ -2611,8 +2621,8 @@ function parseDelimited(text) {
     // CSV history export is one-row-per-meeting (meeting_date); the all-data sheet
     // has a comma/space-joined history cell. Support both.
     let dates = [];
-    if (ci.history !== -1 && r[ci.history]) dates = r[ci.history].split(/[,\s]+/).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d));
-    if (ci.meeting !== -1 && r[ci.meeting] && /^\d{4}-\d{2}-\d{2}$/.test(r[ci.meeting])) dates.push(r[ci.meeting]);
+    if (ci.history !== -1 && r[ci.history]) dates = r[ci.history].split(/[,\s]+/).filter(isRealDate);
+    if (ci.meeting !== -1 && r[ci.meeting] && isRealDate(r[ci.meeting])) dates.push(r[ci.meeting]);
     if (!items[id]) {
       items[id] = { id, name,
         cadenceDays: ci.cadence !== -1 ? (parseInt(r[ci.cadence], 10) || 30) : 30,

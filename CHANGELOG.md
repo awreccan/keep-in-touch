@@ -2,6 +2,10 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.31.0 — 2026-06-06
+### Fixed (ninth-audit finding)
+- **Impossible dates can't sneak in anymore.** A value shaped like a date but not real — e.g. month 13 or February 30 — used to pass validation, then show up as "In NaNd" and quietly disappear from the due/overdue math. Dates are now checked for being real calendar days (not just the right shape) everywhere they enter the app — history, snooze date, archive date, sheet sync, and paste/CSV import. Invalid ones are dropped on load.
+
 ## v1.30.0 — 2026-06-06
 ### Fixed (eighth-audit finding)
 - **Pressing Enter in Settings no longer triggers the wrong action.** The Settings panel has two main buttons (Connect/Sync and Import), so pressing Enter while editing the "remind X days before" field could fire "Connect / Sync now" and close the panel mid-edit. Enter now only auto-submits a dialog when it has a single unambiguous primary action; in panels with more than one (like Settings) Enter does nothing and you tap the button you want. Single-action dialogs (Add person, Snooze, etc.) still submit on Enter as before.
