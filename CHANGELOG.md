@@ -2,6 +2,11 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.32.0 — 2026-06-06
+### Added
+- **Relationship-health glance.** A calm at-a-glance strip under the banner shows how your whole list is doing — a single stacked bar split into overdue / due-soon / never-met / on-track, with counts. Tap any band (in the bar or the legend) to filter the list to just those people; tap again or "clear filter" to show everyone. Pure overview — no new data, works offline.
+- **"On this day" memories.** When you open the app, if you met someone exactly a year (or more) ago today, a warm card resurfaces it — with the note you saved, if any — and a one-tap "Met today" to reconnect right then. Dismiss hides it for the day. A gentle reason to open the app even when nobody's due.
+
 ## v1.31.0 — 2026-06-06
 ### Fixed (ninth-audit finding)
 - **Impossible dates can't sneak in anymore.** A value shaped like a date but not real — e.g. month 13 or February 30 — used to pass validation, then show up as "In NaNd" and quietly disappear from the due/overdue math. Dates are now checked for being real calendar days (not just the right shape) everywhere they enter the app — history, snooze date, archive date, sheet sync, and paste/CSV import. Invalid ones are dropped on load.

@@ -144,6 +144,32 @@
   }
   .banner.alert { color: var(--due-soon-text); background: color-mix(in srgb, var(--due-soon) 12%, var(--surface)); border-left: 3px solid var(--due-soon); }
 
+  /* Relationship-health glance (roadmap #4): a calm at-a-glance portfolio strip. */
+  .health-strip { margin: 0.5rem 1rem 0; display: flex; flex-direction: column; gap: 0.35rem; }
+  .health-bar { display: flex; height: 0.55rem; border-radius: 999px; overflow: hidden; background: var(--surface-2); }
+  .health-seg { border: none; padding: 0; height: 100%; cursor: pointer; transition: filter 0.15s; min-width: 2px; }
+  .health-seg:hover, .health-seg:focus-visible { filter: brightness(1.15); }
+  .health-seg.overdue { background: var(--overdue); }
+  .health-seg.due-soon { background: var(--due-soon); }
+  .health-seg.never-met { background: color-mix(in srgb, var(--due-soon) 55%, var(--text-dim)); }
+  .health-seg.on-track { background: var(--on-track); }
+  .health-seg.active-filter { outline: 2px solid var(--text); outline-offset: 1px; }
+  .health-legend { display: flex; flex-wrap: wrap; gap: 0.5rem 0.85rem; font-size: 0.78rem; color: var(--text-dim); }
+  .health-legend button { background: none; border: none; color: inherit; cursor: pointer; padding: 0.1rem 0.2rem; border-radius: 5px; font-size: inherit; display: inline-flex; align-items: center; gap: 0.3rem; }
+  .health-legend button:hover, .health-legend button:focus-visible { color: var(--text); }
+  .health-legend button[aria-pressed="true"] { color: var(--text); font-weight: 700; }
+  .health-legend .dot { width: 0.6rem; height: 0.6rem; border-radius: 999px; display: inline-block; }
+  .health-clear { margin-left: auto; }
+  @media (prefers-reduced-motion: reduce) { .health-seg { transition: none; } }
+
+  /* On-this-day memory card (roadmap #10): a warm, dismissible reflection. */
+  .on-this-day { display: flex; align-items: flex-start; gap: 0.6rem; margin-bottom: 0.8rem; padding: 0.7rem 0.85rem;
+    border-radius: var(--radius); background: color-mix(in srgb, var(--on-track) 10%, var(--surface));
+    border-left: 3px solid var(--on-track); font-size: 0.875rem; color: var(--text); }
+  .on-this-day .otd-body { flex: 1; line-height: 1.45; }
+  .on-this-day .otd-note { color: var(--text-dim); font-style: italic; }
+  .on-this-day .otd-actions { display: flex; gap: 0.4rem; flex-shrink: 0; }
+
   main { padding: 0.9rem 1rem 5rem; }
 
   .toolbar { display: flex; gap: 0.5rem; margin-bottom: 0.9rem; flex-wrap: wrap; }
@@ -430,6 +456,7 @@
   </div>
  </div>
  <div class="wrap"><div class="banner" id="banner"></div></div>
+ <div class="wrap"><div class="health-strip" id="healthStrip" hidden></div></div>
 </header>
 
 <main class="wrap">
@@ -440,6 +467,7 @@
     <button class="btn" id="exportCsvBtn">Export CSV</button>
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="on-this-day" id="onThisDay" hidden></div>
   <ul class="list" id="list"></ul>
   <div class="empty" id="empty" style="display:none">
     No one here yet. Tap <b>+ Add person</b> to start your list.
@@ -643,10 +671,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.31.0";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.32.0";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.31.0: audit-9 fix — reject impossible calendar dates (isRealDate) so they can't render as "In NaNd")
+   Keep In Touch — renderer (v1.32.0: roadmap features — relationship-health glance (tap-to-filter) + on-this-day memory resurfacing)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -1354,7 +1382,7 @@ async function switchProjectInPlace(name) {
   fileHandle = null; pendingHandle = null; source = "local"; reconnectArmed = false;
   localSaveFailed = false; sheetSyncError = null;
   // reset the archived view (the in-place path keeps the module var; reload wouldn't)
-  showArchived = false; hideToast(); document.body.classList.remove("archived-view");
+  showArchived = false; healthFilter = null; hideToast(); document.body.classList.remove("archived-view");
   const tb = document.getElementById("toggleArchived");
   tb.textContent = "Show snoozed / archived"; tb.classList.remove("primary");
   // reflect the switch in the URL without navigating (keeps the gesture)
@@ -1674,6 +1702,36 @@ function overdueDaysAt(item, metDate) {
   const dueBy = daysBetween(parseISO(prev), parseISO(metDate)) - (item.cadenceDays || 30);
   return dueBy > 0 ? dueBy : null;                         // positive ⇒ was overdue when you met
 }
+/* On-this-day memory resurfacing (roadmap #10): on load, surface a meeting dated
+   exactly N years ago today (same MM-DD) so a quiet day still rewards opening the
+   app. Pure read over existing history; dismissal stored per-day in localStorage so
+   it doesn't nag again the same day. Returns {name, years, date, note} or null. */
+function onThisDayMemory() {
+  const today = todayISO();
+  const mmdd = today.slice(5);            // "MM-DD"
+  const yr = parseInt(today.slice(0, 4), 10);
+  let best = null;
+  for (const it of Object.values(state.items)) {
+    for (const h of (it.history || [])) {
+      const d = h.date;
+      if (!isRealDate(d) || d.slice(5) !== mmdd || d === today) continue;   // same day-of-year, a prior year
+      const years = yr - parseInt(d.slice(0, 4), 10);
+      if (years < 1) continue;
+      // Prefer the most years-ago; tie-break a meeting that has a note (richer memory).
+      if (!best || years > best.years || (years === best.years && h.note && !best.note)) {
+        best = { id: it.id, name: it.name, years, date: d, note: h.note || "" };
+      }
+    }
+  }
+  return best;
+}
+function onThisDayDismissed() {
+  try { return localStorage.getItem("keepInTouch.otdDismissed") === todayISO(); } catch (e) { return false; }
+}
+function dismissOnThisDay() {
+  try { localStorage.setItem("keepInTouch.otdDismissed", todayISO()); } catch (e) {}
+  const el = document.getElementById("onThisDay"); if (el) { el.hidden = true; el.innerHTML = ""; }
+}
 // Count of reconnections in the current calendar month. Iterates ALL people, not
 // just active ones: a reconnection that happened this month is a historical fact, so
 // later snoozing/archiving that person must NOT retroactively decrement the tally.
@@ -1781,7 +1839,19 @@ function dismissSuggestion(id, value) {
 
 /* ---------- rendering ---------- */
 let showArchived = false;
+let healthFilter = null;      // null | "overdue" | "due-soon" | "on-track" | "never-met" — active-view band filter (roadmap #4)
 let toastTimer = null;        // archive-undo toast dismissal timer
+// 4-way status band for the health strip + filter. Splits "never met" out of the
+// due-soon cls (statusOf buckets never-met as due-soon for sorting, but the glance
+// shows it distinctly). Returns one of: overdue | due-soon | on-track | never-met.
+function statusBand(item) {
+  const d = daysUntilDue(item);
+  if (d === null) return "never-met";
+  const remind = item.remindDays != null ? item.remindDays : state.globalRemindDays;
+  if (d < 0) return "overdue";
+  if (d <= remind) return "due-soon";
+  return "on-track";
+}
 let batchField = "cadence";   // "cadence" | "remind" — runtime only, not persisted
 // Cadence values beyond the 1..30 row: the preset days over 30, plus 45 & 60.
 const BATCH_AXIS_PRESETS = [...new Set([45, 60, ...CADENCE_PRESETS.map(p => p.days).filter(d => d > 30)])].sort((a, b) => a - b);
@@ -1800,6 +1870,8 @@ function visibleItems() {
 }
 function sortedForMode() {
   let items = visibleItems();
+  // Health-strip band filter (active view only — parked people aren't in the strip).
+  if (healthFilter && !showArchived) items = items.filter(i => statusBand(i) === healthFilter);
   if (state.mode === "auto") {
     items.sort((a, b) => statusOf(a).order - statusOf(b).order);
   } else {
@@ -1909,6 +1981,63 @@ function render() {
     list.appendChild(li);
   });
   renderBanner();
+  renderHealthStrip();
+  renderOnThisDay();
+}
+
+// On-this-day card (roadmap #10): show a years-ago-today meeting as a warm, dismissible
+// reflection above the list. Hidden in archived/batch view, when dismissed today, or
+// when there's no matching memory. The "Met today" button logs a fresh meeting (and
+// fires the reconnection toast if applicable) — turning the memory into an action.
+function renderOnThisDay() {
+  const el = document.getElementById("onThisDay");
+  if (!el) return;
+  if (showArchived || state.mode === "batch" || onThisDayDismissed()) { el.hidden = true; el.innerHTML = ""; return; }
+  const m = onThisDayMemory();
+  if (!m) { el.hidden = true; el.innerHTML = ""; return; }
+  const yrs = m.years === 1 ? "1 year ago today" : `${m.years} years ago today`;
+  const noteHtml = m.note ? ` <span class="otd-note">“${escapeHtml(m.note)}”</span>` : "";
+  el.innerHTML = `<div class="otd-body">📅 <b>${yrs}</b> you met <b>${escapeHtml(m.name)}</b>.${noteHtml}</div>
+    <div class="otd-actions">
+      <button class="mini accent" data-otd="met" data-otd-id="${escapeHtml(m.id)}">✔ Met today</button>
+      <button class="mini" data-otd="dismiss">Dismiss</button>
+    </div>`;
+  el.hidden = false;
+}
+
+// Relationship-health glance (roadmap #4): a calm stacked bar of the active set's
+// status proportions + a tappable legend that filters the list to one band. No
+// persistence, no backend — pure aggregation of in-memory state. Hidden when there
+// are <2 tracked people (nothing to glance at) or in the archived/batch view.
+function renderHealthStrip() {
+  const strip = document.getElementById("healthStrip");
+  if (!strip) return;
+  const tracked = trackedItems();
+  if (showArchived || state.mode === "batch" || tracked.length < 2) {
+    strip.hidden = true; strip.innerHTML = ""; return;
+  }
+  const ORDER = [
+    { band: "overdue", label: "overdue" },
+    { band: "due-soon", label: "due soon" },
+    { band: "never-met", label: "never met" },
+    { band: "on-track", label: "on track" },
+  ];
+  const counts = {};
+  for (const o of ORDER) counts[o.band] = 0;
+  for (const it of tracked) counts[statusBand(it)]++;
+  const total = tracked.length;
+  const segs = ORDER.filter(o => counts[o.band] > 0).map(o => {
+    const pct = (counts[o.band] / total * 100).toFixed(1);
+    const on = healthFilter === o.band;
+    return `<button class="health-seg ${o.band}${on ? " active-filter" : ""}" style="flex:0 0 ${pct}%"
+      data-band="${o.band}" title="${counts[o.band]} ${o.label}" aria-label="${counts[o.band]} ${o.label}${on ? " (filtered)" : ""}"></button>`;
+  }).join("");
+  const legend = ORDER.map(o =>
+    `<button data-band="${o.band}" aria-pressed="${healthFilter === o.band}"><span class="dot ${o.band}" style="background:var(--${o.band === "never-met" ? "due-soon" : o.band})"></span>${counts[o.band]} ${o.label}</button>`
+  ).join("");
+  const clear = healthFilter ? `<button class="health-clear" data-band="">✕ clear filter</button>` : "";
+  strip.innerHTML = `<div class="health-bar">${segs}</div><div class="health-legend">${legend}${clear}</div>`;
+  strip.hidden = false;
 }
 
 function renderBanner() {
@@ -2192,6 +2321,27 @@ function deleteHistEntry(idx) {
   save(); renderHist(); render();
 }
 
+// Health-strip band filter (roadmap #4): a segment/legend tap filters the list to
+// that band; tapping the active band again (or "clear") removes the filter. data-band=""
+// clears. Toggling re-renders, which re-applies the filter in sortedForMode.
+document.getElementById("healthStrip").addEventListener("click", e => {
+  const btn = e.target.closest("[data-band]");
+  if (!btn) return;
+  const band = btn.dataset.band;
+  healthFilter = (band === "" || band === healthFilter) ? null : band;
+  render();
+});
+// On-this-day card actions (roadmap #10): log a fresh meeting, or dismiss for today.
+document.getElementById("onThisDay").addEventListener("click", e => {
+  const btn = e.target.closest("[data-otd]");
+  if (!btn) return;
+  if (btn.dataset.otd === "met") {
+    const id = btn.dataset.otdId;
+    if (id && state.items[id]) { dismissOnThisDay(); logMeeting(id, todayISO()); }   // logMeeting re-renders + may fire reconnect toast
+  } else {
+    dismissOnThisDay();
+  }
+});
 document.getElementById("list").addEventListener("click", e => {
   const btn = e.target.closest("[data-act]");
   if (!btn) return;
@@ -2727,6 +2877,7 @@ document.getElementById("p_rename").onclick = async () => {
 /* archived toggle */
 document.getElementById("toggleArchived").onclick = e => {
   showArchived = !showArchived;
+  healthFilter = null;   // the band filter is an active-view concept; clear on view switch
   e.target.textContent = showArchived ? "Show active" : "Show snoozed / archived";
   e.target.classList.toggle("primary", showArchived);
   hideToast();
