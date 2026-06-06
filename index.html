@@ -643,10 +643,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.23.0";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.24.0";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.23.0: auto-heal — re-save cleaned data to Sheet on load when corruption dropped)
+   Keep In Touch — renderer (v1.24.0: note-aware union merge + JSON-import merges + first-install reload fix)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -906,14 +906,17 @@ async function verifyPermission(handle, write) {
 // Canonicalize a history array to Array<{date, note?}>: tolerate bare strings,
 // mixed/legacy shapes, and hand-edited Sheet cells; dedupe by date (prefer a
 // non-empty note); sort ascending. Self-healing — no migration flag (F2).
-function normalizeHistory(arr) {
+// Normalize a history array to deduped, sorted {date, note?} entries. Pass an
+// optional `stats` object to learn whether any INVALID (non-date) token was
+// dropped — that signals real corruption (vs. a benign same-date dedup).
+function normalizeHistory(arr, stats) {
   if (!Array.isArray(arr)) return [];
   const byDate = new Map();
   for (const el of arr) {
     const date = typeof el === "string" ? el : (el && el.date);
     // Must be a real YYYY-MM-DD date — drops legacy junk AND old-corruption tokens
     // like "[object" / "Object]," that the v1.11 Sheet bug left behind.
-    if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+    if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) { if (stats) stats.droppedInvalid = true; continue; }
     const note = (el && typeof el === "object" && el.note) ? String(el.note) : "";
     const prev = byDate.get(date);
     const keepNote = note || (prev && prev.note) || "";
@@ -922,18 +925,16 @@ function normalizeHistory(arr) {
   return [...byDate.values()].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
 }
 
-let healedCorruptionOnLoad = false;   // set when mergeState drops corrupt history tokens
+let healedCorruptionOnLoad = false;   // set when mergeState drops corrupt (invalid-date) tokens
 function mergeState(raw) {
   const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
   const merged = Object.assign(structuredClone(DEFAULT_STATE), parsed, { project: PROJECT });
   // Single chokepoint for ALL ingest paths (sheet/file/local/import): normalize history.
-  // If normalization shrinks any item's history, we dropped corrupt tokens (e.g. the old
-  // "[object Object]" / scrambled-Date garbage) — flag it so callers can persist the heal.
-  for (const it of Object.values(merged.items || {})) {
-    const before = Array.isArray(it.history) ? it.history.length : 0;
-    it.history = normalizeHistory(it.history);
-    if (it.history.length < before) healedCorruptionOnLoad = true;
-  }
+  // Flag a heal ONLY when an invalid token was dropped (real corruption), not on a
+  // benign same-date dedup — so the auto-heal re-save never fires spuriously.
+  const stats = { droppedInvalid: false };
+  for (const it of Object.values(merged.items || {})) it.history = normalizeHistory(it.history, stats);
+  if (stats.droppedInvalid) healedCorruptionOnLoad = true;
   return merged;
 }
 
@@ -950,18 +951,10 @@ function unionStates(local, remote) {
   for (const id of Object.keys(rItems)) {
     const r = rItems[id];
     if (!out.items[id]) { out.items[id] = structuredClone(r); continue; }
-    // merge histories by their date (works for string or {date} entries)
-    const seen = new Set(), merged = [];
-    for (const e of [...(out.items[id].history || []), ...(r.history || [])]) {
-      const key = typeof e === "string" ? e : (e && e.date) || "";
-      if (seen.has(key)) continue; seen.add(key); merged.push(e);
-    }
-    merged.sort((a, b) => {
-      const da = typeof a === "string" ? a : (a && a.date) || "";
-      const db = typeof b === "string" ? b : (b && b.date) || "";
-      return da.localeCompare(db);
-    });
-    out.items[id].history = merged;
+    // Union histories via normalizeHistory so a note on EITHER side is preserved
+    // when the same date appears on both (its dedup does keepNote = note||prev.note).
+    // Plain concat + normalize avoids the old first-seen-wins bug that dropped notes.
+    out.items[id].history = normalizeHistory([...(out.items[id].history || []), ...(r.history || [])]);
   }
   const order = (local.manualOrder || []).slice();
   for (const id of (remote && remote.manualOrder) || []) {
@@ -2249,17 +2242,14 @@ function parseDelimited(text) {
   }
   return { schemaVersion: 1, project: PROJECT, globalRemindDays: state.globalRemindDays, mode: state.mode, manualOrder: order, items };
 }
-// Import JSON or delimited text; JSON replaces, delimited MERGES into current project.
+// Import JSON or delimited text; BOTH merge into the current project (never wipe
+// existing people) — matching the Settings hint "merges into the current project".
 function importText(text) {
   const t = text.trim();
-  if (t.startsWith("{")) {
-    const data = JSON.parse(t);
-    if (!data.items) throw new Error("not a Keep In Touch JSON export");
-    state = mergeState(data);
-  } else {
-    const incoming = mergeState(parseDelimited(t));   // normalizes history
-    state = unionStates(state, incoming);             // merge, never lose existing
-  }
+  const incoming = t.startsWith("{")
+    ? (() => { const data = JSON.parse(t); if (!data.items) throw new Error("not a Keep In Touch JSON export"); return mergeState(data); })()
+    : mergeState(parseDelimited(t));   // both normalize history
+  state = unionStates(state, incoming);   // union by id + history; preserves current people
   save(); render(); updateProjectBar();
 }
 document.getElementById("s_import").onchange = e => {
@@ -2416,12 +2406,13 @@ async function registerServiceWorker() {
   if (!("serviceWorker" in navigator) || !(location.protocol === "https:" || location.hostname === "localhost")) return;
   // When a freshly-deployed worker takes control, reload ONCE so an installed
   // (warm) Android PWA actually runs the new code instead of the cached old shell.
+  // Capture controlled-state NOW: on first install the page starts uncontrolled,
+  // then clients.claim() populates .controller AND fires controllerchange — so we
+  // must remember "was there a controller at load?" to skip that first-install reload.
+  const hadController = !!navigator.serviceWorker.controller;
   let reloaded = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (reloaded) return;
-    // Skip the first-ever control acquisition (initial install on an uncontrolled
-    // page) to avoid a reload loop; only reload when replacing an existing worker.
-    if (!navigator.serviceWorker.controller) return;
+    if (reloaded || !hadController) return;   // skip first-install claim; only reload on a real update
     reloaded = true;
     location.reload();
   });

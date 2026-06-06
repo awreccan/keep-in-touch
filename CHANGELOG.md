@@ -2,6 +2,12 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.24.0 — 2026-06-06
+### Fixed (final-audit findings)
+- **Meeting notes no longer get dropped when devices sync.** When merging your data with the Sheet, a note added on one device could be lost if another device had the same meeting date without a note. The merge now keeps the note from whichever side has one.
+- **Importing no longer wipes your existing list.** Importing a JSON export now *merges* into the current project (matching the on-screen promise), instead of silently replacing everyone — so restoring a backup or importing one list while another is open is safe. (CSV/TSV import already merged.)
+- **No spurious reload on first install.** Installing the app could trigger one needless reload; it now only reloads when a genuinely new version takes over.
+
 ## v1.23.0 — 2026-06-06
 ### Fixed
 - **Corrupted data now cleans itself the moment you open the project — no edit needed.** Previously, garbage history cells (from the old `[object Object]` / scrambled-date bugs) were dropped in-app on load but only written back to your Sheet on your next change. Now, if the app detects and heals corruption while loading, it immediately re-saves the cleaned data to the Sheet. Open the affected project on any device and the bad cells fix themselves automatically.
