@@ -643,10 +643,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.19.0";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.20.0";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.19.0: backend coerces Sheets-typed dates to YYYY-MM-DD)
+   Keep In Touch — renderer (v1.20.0: union-on-load + Sheet error guards + PWA auto-reload — audit fixes)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -742,6 +742,7 @@ let state = structuredClone(DEFAULT_STATE);
 let fileHandle = null;        // FileSystemFileHandle when connected to a project file
 let pendingHandle = null;     // stored handle whose permission lapsed; awaits a one-tap reconnect
 let source = "local";         // "sheet" | "file" | "local"
+let sheetSyncError = null;    // null | "auth" | "sync" — set when a Sheet read fails
 
 /* ---------- Google Sheet backend config ----------
    One Apps Script /exec URL serves ALL project tabs in the Sheet, so the
@@ -783,11 +784,31 @@ function sheetEndpoint(cfg) {
   if (cfg.token) u.searchParams.set("token", cfg.token);
   return u.toString();
 }
+// Fetch JSON from the Apps Script endpoint, guarding the redirect-to-HTML case.
+// The /exec GET 302-redirects to script.googleusercontent.com; if the browser
+// isn't signed into the right Google account (common on mobile) the redirected
+// body is login/error HTML, and a bare res.json() throws an opaque SyntaxError
+// that the callers swallow → "connected but no data". Surface a clear error.
+async function fetchSheetJson(url, opts) {
+  const res = await fetch(url, opts);
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); }
+  catch (e) {
+    throw new Error(res.ok
+      ? "The Google Sheet returned a non-JSON response. On mobile this usually means this browser isn't signed into the Google account that can open the script, or the web-app access isn't set to \"Anyone\"."
+      : "Google Sheet request failed (HTTP " + res.status + ").");
+  }
+  if (data && data.error) throw new Error(data.error);   // backend {error:"unauthorized"} etc.
+  return data;
+}
 async function loadFromSheet(cfg) {
-  const res = await fetch(sheetEndpoint(cfg), { method: "GET" });
-  const data = await res.json();
-  if (data && data.error) throw new Error(data.error);
-  state = mergeState(data);
+  const data = await fetchSheetJson(sheetEndpoint(cfg), { method: "GET" });
+  // UNION the remote into whatever is already loaded (the local cache, loaded by
+  // loadProjectData first) instead of hard-replacing — so a transient empty/sparse
+  // Sheet can't wipe cached people, and locally-cached meeting NOTES survive (notes
+  // aren't stored in the Sheet). Mirrors connectSheet's non-destructive merge.
+  state = unionStates(state, mergeState(data));
   source = "sheet";
 }
 let sheetSaveTimer = null;
@@ -808,7 +829,16 @@ function scheduleSheetSave(cfg) {
   sheetSaveTimer = setTimeout(() => {
     // text/plain body avoids a CORS preflight Apps Script can't answer
     fetch(sheetEndpoint(cfg), { method: "POST", body: JSON.stringify(sheetSafeState()) })
-      .then(res => { if (!res.ok) throw new Error("HTTP " + res.status); setSaveStatus("saved"); })
+      .then(async res => {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        // The backend returns {ok:true} on success or {error:...} on rejection
+        // (e.g. wrong token) — both at HTTP 200. Treat an in-body error as failure
+        // so a rejected save never shows "saved ✓" (silent data loss).
+        const d = await res.json().catch(() => null);
+        if (d && d.error) throw new Error(d.error);
+        if (!d || d.ok !== true) throw new Error("unexpected save response");
+        setSaveStatus("saved");
+      })
       .catch(err => { console.error("sheet save failed (cached locally)", err); setSaveStatus("failed"); });
   }, 800);
 }
@@ -1024,11 +1054,19 @@ async function connectProjectFile() {
 async function loadProjectData({ canPrompt }) {
   const sheetCfg = getSheetCfg();
   if (sheetCfg) {
-    loadFromLocal();   // instant cached paint
+    loadFromLocal();   // instant cached paint (sets source="local" + fills state from cache)
     if (Object.keys(state.items).length) { render(); updateProjectBar(); hideLoader(); }
     else { showLoader("Syncing from Google Sheet…"); }
-    try { await loadFromSheet(sheetCfg); }
-    catch (e) { console.error("sheet load failed, using local cache", e); loadFromLocal(); }
+    sheetSyncError = null;
+    try {
+      await loadFromSheet(sheetCfg);   // unions remote into the cache; sets source="sheet"
+    } catch (e) {
+      console.error("sheet load failed, using local cache", e);
+      // Keep the device Sheet-BOUND (source="sheet") so saves still POST and we
+      // don't silently demote to local-only. Surface the failure in the bar.
+      source = "sheet";
+      sheetSyncError = /unauthorized/i.test(e.message) ? "auth" : "sync";
+    }
     discoverSheetProjects(sheetCfg).catch(() => {});   // keep cross-device project list in sync (non-blocking)
     return;
   }
@@ -1149,10 +1187,9 @@ function finishOnboarding() {
 async function connectSheet(url, token) {
   const cfg = { url, token: token || null };
   showLoader("Connecting to Google Sheet…");
-  // Fetch the remote WITHOUT clobbering the in-memory state.
-  const res = await fetch(sheetEndpoint(cfg), { method: "GET" });
-  const data = await res.json();
-  if (data && data.error) throw new Error(data.error);   // verify before committing
+  // Fetch the remote WITHOUT clobbering the in-memory state. fetchSheetJson
+  // surfaces a clear error if the URL redirects to login/error HTML.
+  const data = await fetchSheetJson(sheetEndpoint(cfg), { method: "GET" });
   state = unionStates(state, mergeState(data));           // local data preserved + pushed up
   source = "sheet";
   setSheetCfg(cfg);
@@ -1176,24 +1213,29 @@ async function connectSheet(url, token) {
 //      propagate to others. Each device merges the union and writes it back.
 async function discoverSheetProjects(cfg) {
   const found = new Set();
+  let readOk = false;   // did at least one remote read actually succeed?
   // (1) newer-backend tab enumeration
   try {
     const u = new URL(cfg.url);
     u.searchParams.set("action", "projects");
     if (cfg.token) u.searchParams.set("token", cfg.token);
-    const data = await (await fetch(u.toString())).json();
-    if (Array.isArray(data.projects)) data.projects.forEach(n => found.add(normProject(n)));
+    const data = await fetchSheetJson(u.toString());
+    if (Array.isArray(data.projects)) { data.projects.forEach(n => found.add(normProject(n))); readOk = true; }
   } catch (e) { /* old backend / offline — fall through to the registry tab */ }
   // (2) registry-tab sync (redeploy-free)
   try {
-    const data = await (await fetch(sheetEndpointFor(cfg, REGISTRY_TAB))).json();
+    const data = await fetchSheetJson(sheetEndpointFor(cfg, REGISTRY_TAB));
     Object.values((data && data.items) || {}).forEach(it => { if (it.name) found.add(normProject(it.name)); });
+    readOk = true;
   } catch (e) { /* non-fatal */ }
-  // merge discovered names with local registry, then publish the union back up
+  // merge discovered names with local registry
   getRegistry().forEach(n => found.add(n));
   found.delete(normProject(REGISTRY_TAB));           // never list the registry itself
   found.delete("default");                            // default is implicit everywhere
   for (const n of found) registerProject(n);
+  // Publish the union back up ONLY if a read succeeded — otherwise an offline /
+  // auth-failed read would clobber the shared registry tab with a poorer local set.
+  if (!readOk || !found.size) return;
   try {
     const items = {};
     [...found].forEach(n => { items[n] = { id: n, name: n, cadenceDays: 30, history: [], archived: false }; });
@@ -1289,7 +1331,11 @@ function updateProjectBar() {
     label.innerHTML = "· <button class=\"link-btn\" id=\"reconnectBtn\">Reconnect file</button> to sync edits";
     document.getElementById("reconnectBtn").onclick = reconnectFromPending;
   } else if (source === "sheet") {
-    label.textContent = "· synced to Google Sheet";
+    label.textContent = sheetSyncError === "auth"
+      ? "· ⚠ couldn't sync — check your Sheet URL / token"
+      : sheetSyncError === "sync"
+      ? "· ⚠ couldn't reach the Sheet — showing last saved"
+      : "· synced to Google Sheet";
   } else if (source === "file") {
     label.textContent = "· saved to connected file";
     document.getElementById("connectBtn").textContent = "Change file…";
@@ -2337,9 +2383,19 @@ window.addEventListener("appinstalled", () => {
   document.getElementById("installBtn").hidden = true;
 });
 async function registerServiceWorker() {
-  if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-    try { await navigator.serviceWorker.register("sw.js"); } catch (e) { /* non-fatal */ }
-  }
+  if (!("serviceWorker" in navigator) || !(location.protocol === "https:" || location.hostname === "localhost")) return;
+  // When a freshly-deployed worker takes control, reload ONCE so an installed
+  // (warm) Android PWA actually runs the new code instead of the cached old shell.
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloaded) return;
+    // Skip the first-ever control acquisition (initial install on an uncontrolled
+    // page) to avoid a reload loop; only reload when replacing an existing worker.
+    if (!navigator.serviceWorker.controller) return;
+    reloaded = true;
+    location.reload();
+  });
+  try { await navigator.serviceWorker.register("sw.js"); } catch (e) { /* non-fatal */ }
 }
 function maybeShowIosHint() {
   if (isIOS() && localStorage.getItem("keepInTouch.pwaIosHintDismissed") !== "1") {

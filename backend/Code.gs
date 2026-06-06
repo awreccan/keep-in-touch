@@ -42,7 +42,9 @@ function handle(e, method) {
     // discover projects already in this Sheet). Handled BEFORE getOrCreateSheet
     // so it never creates a stray tab.
     if (e.parameter && e.parameter.action === "projects") {
-      var names = SpreadsheetApp.getActiveSpreadsheet().getSheets().map(function (s) { return s.getName(); });
+      var names = SpreadsheetApp.getActiveSpreadsheet().getSheets()
+        .map(function (s) { return s.getName(); })
+        .filter(function (n) { return n !== "kit-registry"; });   // hide sync-plumbing tab
       return json({ projects: names });
     }
     var project = (e.parameter && e.parameter.project) || "default";
@@ -272,6 +274,7 @@ function sendDailyReminders() {
   var sections = [];   // [{project, overdue, dueSoon, neverMet}]
   var total = 0;
   SpreadsheetApp.getActiveSpreadsheet().getSheets().forEach(function (sheet) {
+    if (sheet.getName() === "kit-registry") return;   // sync-plumbing tab, not a real project
     try {
       var state = readState(sheet, sheet.getName());
       var due = collectDueForProject(state);

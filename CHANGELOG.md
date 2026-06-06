@@ -2,6 +2,14 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.20.0 — 2026-06-06
+### Fixed (from an adversarial audit of the sync/PWA paths)
+- **Reloading a Sheet-backed project no longer loses data.** The app used to overwrite everything with whatever the Sheet returned on each load — so meeting **notes** (which the Sheet doesn't store) and any people that existed only on this device were silently dropped. Loads now *merge* with what you have, keeping notes and local-only people while pulling in the Sheet's additions.
+- **"Connected but no data" on mobile now shows a real reason.** If the Sheet request redirects to a Google sign-in/error page (common when the phone's browser isn't signed into the right Google account), the app now says so ("couldn't sync — check your Sheet URL / token") instead of silently showing an empty local list. It also stays bound to the Sheet so your edits still save up.
+- **A failed sync no longer secretly demotes you to local-only.** Saves keep going to the Sheet, and a wrong/expired token now shows "save failed" instead of a false "saved ✓".
+- **Installed app updates itself.** When a new version is deployed, the PWA now reloads once to pick it up, instead of a warm Android window running stale code indefinitely.
+- **The daily reminder email no longer lists a phantom "kit-registry" project**, and the hidden sync tab is excluded from project listings everywhere.
+
 ## v1.19.0 — 2026-06-05
 ### Fixed
 - **Dates that Google Sheets auto-formats no longer corrupt your data.** If Sheets turned a date cell into a real date value, the backend used to stringify it as a long locale string (e.g. "Thu Apr 30 2026 00:00:00 GMT-0700 (Pacific Daylight Time)") which then got scrambled. The backend now converts any date-typed cell to plain `YYYY-MM-DD` on read. Combined with the v1.18 self-heal on load, this both prevents and cleans up that garbage. **Requires redeploying `backend/Code.gs`.**
