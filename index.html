@@ -643,10 +643,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.27.0";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.28.0";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.27.0: audit-5 fixes (XSS, email blocker, local-field loss, race) + drift nudge + reconnection wins)
+   Keep In Touch — renderer (v1.28.0: audit-6 fixes — cross-device un-snooze, archivedAt XSS, history-edit Enter collision + 3 minors)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -1066,6 +1066,9 @@ function mergeState(raw) {
     if (it.snoozedUntil != null && !/^\d{4}-\d{2}-\d{2}$/.test(String(it.snoozedUntil))) {
       delete it.snoozedUntil; delete it.snoozeReason;
     }
+    // archivedAt is local-only + rendered into the card meta — validate it the same
+    // way so a malformed/poisoned value can neither inject markup nor display garbage.
+    if (it.archivedAt != null && !/^\d{4}-\d{2}-\d{2}$/.test(String(it.archivedAt))) delete it.archivedAt;
   }
   if (stats.droppedInvalid) healedCorruptionOnLoad = true;
   return merged;
@@ -1103,12 +1106,17 @@ function unionStates(local, remote, opts) {
       //
       // OVERLAY remote scalars ON TOP of the local item (not replace) so DEVICE-LOCAL
       // fields the backend never stores (snoozeReason, archivedAt) survive a clean
-      // load. Remote scalars still win for everything the Sheet does carry. Then drop
-      // a local-only field when its remote PARENT scalar is gone (un-snoozed /
-      // un-archived elsewhere), so the annotation can't outlive the state it describes.
-      const merged = Object.assign(structuredClone(out.items[id]), structuredClone(r), { history: mergedHistory });
-      if (r.snoozedUntil == null) delete merged.snoozeReason;   // no longer snoozed remotely
-      if (!r.archived) delete merged.archivedAt;                 // no longer archived remotely
+      // load. Remote is AUTHORITATIVE here, so each SYNCED scalar that remote does NOT
+      // carry must be CLEARED from the merged item — otherwise a stale local value
+      // (e.g. a snoozedUntil the backend omits because it's now blank) silently
+      // survives and gets re-pushed, reverting a cross-device un-snooze/un-archive.
+      const merged = structuredClone(out.items[id]);
+      for (const f of SCALAR_FIELDS) { if (r[f] === undefined) delete merged[f]; }
+      Object.assign(merged, structuredClone(r), { history: mergedHistory });
+      // Drop a device-local annotation once its remote PARENT scalar is gone, so it
+      // can't outlive the state it describes (un-snoozed / un-archived elsewhere).
+      if (merged.snoozedUntil == null) delete merged.snoozeReason;
+      if (!merged.archived) delete merged.archivedAt;
       out.items[id] = merged;
     } else {
       // Connect/import: keep local scalars (preserve what's in front of the user /
@@ -1313,9 +1321,12 @@ async function switchProjectInPlace(name) {
   clearTombstone(PROJECT);        // explicit user intent — un-tombstone if re-creating
   registerProject(PROJECT);
   rememberLastProject(PROJECT);   // so a stripped-query reload restores this one
-  // reset per-project runtime state
+  // reset per-project runtime state (incl. per-project error/sync flags, so a failed
+  // save on the project we're leaving doesn't show a false "couldn't save" banner on
+  // the project we switch to)
   state = structuredClone(DEFAULT_STATE);
   fileHandle = null; pendingHandle = null; source = "local"; reconnectArmed = false;
+  localSaveFailed = false; sheetSyncError = null;
   // reset the archived view (the in-place path keeps the module var; reload wouldn't)
   showArchived = false; hideToast(); document.body.classList.remove("archived-view");
   const tb = document.getElementById("toggleArchived");
@@ -1637,11 +1648,13 @@ function overdueDaysAt(item, metDate) {
   const dueBy = daysBetween(parseISO(prev), parseISO(metDate)) - (item.cadenceDays || 30);
   return dueBy > 0 ? dueBy : null;                         // positive ⇒ was overdue when you met
 }
-// Count of reconnections in the current calendar month, across all active people.
+// Count of reconnections in the current calendar month. Iterates ALL people, not
+// just active ones: a reconnection that happened this month is a historical fact, so
+// later snoozing/archiving that person must NOT retroactively decrement the tally.
 function reconnectionsThisMonth() {
   const ym = todayISO().slice(0, 7);                       // "YYYY-MM"
   let n = 0;
-  for (const it of trackedItems()) {
+  for (const it of Object.values(state.items)) {
     for (const d of histDates(it)) { if (d.slice(0, 7) === ym && overdueDaysAt(it, d) != null) n++; }
   }
   return n;
@@ -1718,9 +1731,14 @@ function driftNudge(item) {
   if (!lm) return null;
   const sinceLast = daysBetween(parseISO(lm), parseISO(todayISO()));
   if (sinceLast <= m * DRIFT_MARGIN) return null;     // still within the normal rhythm
-  // Precedence: if the set cadence disagrees with the rhythm, the cadence-change
-  // suggestion owns this card — defer to it to avoid two competing prompts.
-  if (suggestCadence(item) != null) return null;
+  // Precedence: defer to the cadence-change suggestion ONLY when it would actually
+  // DISPLAY — i.e. it exists AND hasn't been dismissed. (Using suggestCadence alone
+  // suppressed the drift nudge forever after the user dismissed the suggestion, since
+  // suggestCadence still returns non-null; the render gate hides it but driftNudge
+  // didn't know. Mirror the render gate's `sug !== suggestDismissed` check here.)
+  const sug = suggestCadence(item);
+  const sugWouldShow = sug != null && sug !== (item.suggestDismissed != null ? item.suggestDismissed : null);
+  if (sugWouldShow) return null;
   return { observed: Math.round(m), sinceLast };
 }
 function acceptSuggestion(id, value) {
@@ -1840,7 +1858,7 @@ function render() {
           <div class="card-meta">
             Every ${item.cadenceDays}d ·
             ${lm ? "last met " + humanizeRelative(lm) + ' <span style="opacity:.7">(' + lm + ')</span>' : "no meetings logged"} ·
-            ${item.history.length} logged · remind ${remind}d before${item.archived ? (item.archivedAt ? " · archived " + item.archivedAt : " · archived") : ""}${snoozed && item.snoozeReason ? " · 💤 " + escapeHtml(item.snoozeReason) : ""}
+            ${item.history.length} logged · remind ${remind}d before${item.archived ? (item.archivedAt ? " · archived " + escapeHtml(item.archivedAt) : " · archived") : ""}${snoozed && item.snoozeReason ? " · 💤 " + escapeHtml(item.snoozeReason) : ""}
           </div>
           ${sug != null && sug !== (item.suggestDismissed != null ? item.suggestDismissed : null) ? `<div class="cadence-suggest" role="note">
             💡 You're meeting ~every ${sug}d, but cadence is ${item.cadenceDays}d.
@@ -2306,6 +2324,12 @@ function topOpenModalId() {
 document.addEventListener("keydown", e => {
   const id = topOpenModalId();
   if (!id) return;
+  // Defer to controls that own their OWN keydown handling, so the global handler
+  // doesn't double-fire: the inline history-date editor (#histList .hist-edit-input)
+  // handles Enter (commit the edit) and Escape (cancel just the row) itself —
+  // without this guard, global Enter also clicked the modal's "Log it" primary
+  // button (a spurious 'met today') and global Escape closed the whole modal.
+  if (e.target.closest && e.target.closest("#histList")) return;
   if (e.key === "Escape") {
     e.preventDefault();
     if (id === "onboardModal") finishOnboarding(); else closeModal(id);
@@ -2494,6 +2518,12 @@ document.getElementById("histList").addEventListener("click", e => {
 // Keyboard: Enter commits the edit row, Escape cancels (no mouse trip needed).
 document.getElementById("histList").addEventListener("keydown", e => {
   const inp = e.target.closest(".hist-edit-input"); if (!inp) return;
+  // stopPropagation so the document-level modal keydown handler never sees this:
+  // editHistEntry re-renders #histList, detaching e.target, which made the global
+  // handler's `e.target.closest("#histList")` guard return null (detached node) and
+  // fire the modal's primary "Log it" button — a spurious 'met today'. Stopping the
+  // event here is the robust fix (the closest()-guard alone can't survive the re-render).
+  e.stopPropagation();
   const li = e.target.closest("li");
   const saveBtn = li.querySelector("[data-save]");
   if (e.key === "Enter") { e.preventDefault(); editHistEntry(+saveBtn.dataset.save, inp.value); }

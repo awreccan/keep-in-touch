@@ -2,6 +2,15 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.28.0 — 2026-06-06
+### Fixed (sixth-audit findings)
+- **Un-snoozing someone on one device now sticks everywhere.** Previously, waking a snoozed person on one device could be silently undone the next time another device synced (it even re-snoozed them on the shared sheet). Cross-device un-snooze and un-archive now propagate correctly. *(Also fixes a stale "dismissed cadence suggestion" lingering across devices.)*
+- **Security: closed a second cross-site-scripting sink.** The archive date (`archivedAt`) was rendered without escaping — same class as the snooze-field issue. It's now HTML-escaped and validated as a real date on load.
+- **Editing a meeting's date no longer logs a phanty extra "met today".** Pressing Enter while editing a date in the History view used to both save the edit *and* trigger a spurious new meeting for today; Escape closed the whole dialog instead of just the edit. Both now behave correctly.
+- **No false "couldn't save" warning after switching projects.** A save failure on one project no longer carries its warning over to a healthy project you switch to.
+- **The drift nudge comes back after you dismiss a cadence suggestion.** Dismissing the "change cadence?" suggestion no longer permanently hides the separate "time for a catch-up?" nudge.
+- **Reconnection tally is stable.** Snoozing or archiving someone you reconnected with this month no longer retroactively lowers your "reconnections this month" count.
+
 ## v1.27.0 — 2026-06-06
 ### Added
 - **Reconnection wins.** When you log a meeting with someone you'd drifted past their cadence, the app gives a warm one-time cheer ("🌱 Reconnected with Alex — 4 weeks overdue. Nice one.") and keeps a calm "N reconnections this month" tally in the banner. It only ever celebrates — there's no streak to break and nothing turns red for falling behind.
