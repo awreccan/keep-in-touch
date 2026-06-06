@@ -2,6 +2,10 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.29.0 — 2026-06-06
+### Fixed (seventh-audit finding)
+- **Security: hardened number fields against a crafted import.** Cadence, remind-days, and the global remind setting are now coerced to real numbers the moment data is loaded (from a JSON/paste import, file, or sheet). Previously a hand-crafted import could place markup in those fields, which rendered unescaped on a card — the same cross-site-scripting class as the earlier date-field fixes, now closed structurally (a number simply can't carry markup). Garbage values fall back to safe defaults (cadence 30, remind = inherit global, global 3).
+
 ## v1.28.0 — 2026-06-06
 ### Fixed (sixth-audit findings)
 - **Un-snoozing someone on one device now sticks everywhere.** Previously, waking a snoozed person on one device could be silently undone the next time another device synced (it even re-snoozed them on the shared sheet). Cross-device un-snooze and un-archive now propagate correctly. *(Also fixes a stale "dismissed cadence suggestion" lingering across devices.)*

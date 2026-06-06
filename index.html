@@ -643,10 +643,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.28.0";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.29.0";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.28.0: audit-6 fixes — cross-device un-snooze, archivedAt XSS, history-edit Enter collision + 3 minors)
+   Keep In Touch — renderer (v1.29.0: audit-7 fix — coerce numeric scalars on ingest (closes import-markup XSS class))
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -1053,6 +1053,10 @@ let healedCorruptionOnLoad = false;   // set when mergeState drops corrupt (inva
 function mergeState(raw) {
   const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
   const merged = Object.assign(structuredClone(DEFAULT_STATE), parsed, { project: PROJECT });
+  // Coerce the state-level globalRemindDays too — it renders unescaped via the
+  // `remind ${remind}d` sink as the per-item fallback, so a crafted import value
+  // would otherwise inject markup. (Per-item numerics are coerced in the loop below.)
+  merged.globalRemindDays = (Number.isFinite(+merged.globalRemindDays) && +merged.globalRemindDays >= 0) ? Math.floor(+merged.globalRemindDays) : 3;
   // Single chokepoint for ALL ingest paths (sheet/file/local/import): normalize history.
   // Flag a heal ONLY when an invalid token was dropped (real corruption), not on a
   // benign same-date dedup — so the auto-heal re-save never fires spuriously.
@@ -1069,6 +1073,18 @@ function mergeState(raw) {
     // archivedAt is local-only + rendered into the card meta — validate it the same
     // way so a malformed/poisoned value can neither inject markup nor display garbage.
     if (it.archivedAt != null && !/^\d{4}-\d{2}-\d{2}$/.test(String(it.archivedAt))) delete it.archivedAt;
+    // COERCE numeric scalars to real numbers on ingest. cadenceDays/remindDays/
+    // suggestDismissed render unescaped into card-meta innerHTML (`every ${cadenceDays}d`),
+    // so a crafted JSON/paste import with markup in those fields would be an XSS sink.
+    // A coerced Number can never carry markup, closing the whole class (no per-site
+    // escaping needed). Invalid/garbage → safe defaults; remindDays/suggestDismissed
+    // stay null when absent or non-numeric (null = inherit global / no dismissal).
+    it.cadenceDays = (Number.isFinite(+it.cadenceDays) && +it.cadenceDays >= 1) ? Math.floor(+it.cadenceDays) : 30;
+    it.remindDays = (it.remindDays != null && Number.isFinite(+it.remindDays) && +it.remindDays >= 0) ? Math.floor(+it.remindDays) : null;
+    if (it.suggestDismissed != null) {
+      it.suggestDismissed = Number.isFinite(+it.suggestDismissed) ? Math.floor(+it.suggestDismissed) : undefined;
+      if (it.suggestDismissed === undefined) delete it.suggestDismissed;
+    }
   }
   if (stats.droppedInvalid) healedCorruptionOnLoad = true;
   return merged;
