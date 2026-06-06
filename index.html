@@ -463,6 +463,7 @@
   <div class="toolbar">
     <button class="btn primary" id="addBtn">+ Add person</button>
     <button class="btn" id="toggleArchived">Show snoozed / archived</button>
+    <button class="btn" id="recapBtn">This month ✨</button>
     <button class="btn" id="exportBtn">Export JSON</button>
     <button class="btn" id="exportCsvBtn">Export CSV</button>
   </div>
@@ -583,6 +584,18 @@
 </div>
 
 <!-- Settings modal -->
+<div class="modal-backdrop" id="recapModal">
+  <div class="modal">
+    <h2 id="recapTitle">This month ✨</h2>
+    <pre class="recap-text" id="recapText" style="white-space:pre-wrap;font-family:inherit;font-size:0.9rem;line-height:1.5;margin:0 0 1rem"></pre>
+    <div class="modal-actions" style="justify-content:flex-start">
+      <button class="btn primary" id="recapCopy">Copy summary</button>
+      <button class="btn" id="recapClose">Close</button>
+    </div>
+    <div class="hint">A private snapshot built from your own meeting log — nothing leaves your device unless you copy &amp; share it.</div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="settingsModal">
   <div class="modal">
     <h2>Settings</h2>
@@ -671,10 +684,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.32.0";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.33.0";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.32.0: roadmap features — relationship-health glance (tap-to-filter) + on-this-day memory resurfacing)
+   Keep In Touch — renderer (v1.33.0: roadmap feature — shareable monthly recap ("This month ✨") built client-side from history)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -1742,6 +1755,60 @@ function reconnectionsThisMonth() {
     for (const d of histDates(it)) { if (d.slice(0, 7) === ym && overdueDaysAt(it, d) != null) n++; }
   }
   return n;
+}
+
+/* Monthly recap (roadmap #11): a private, self-generated "connection wrap" — 100%
+   client-side over existing history, no backend, no new data. Returns the stats for
+   the given YYYY-MM (defaults to current month). All counts derive from history +
+   the existing overdueDaysAt reconnection logic. */
+function monthlyRecapStats(ym) {
+  ym = ym || todayISO().slice(0, 7);
+  let meetings = 0, reconnections = 0;
+  const peopleSeen = new Set();
+  let mostNeglected = null;        // {name, gapDays} — longest gap-before-reconnect this month
+  const perPerson = {};            // name -> count this month (for "most consistent")
+  for (const it of Object.values(state.items)) {
+    for (const h of (it.history || [])) {
+      const d = h.date;
+      if (!isRealDate(d) || d.slice(0, 7) !== ym) continue;
+      meetings++;
+      peopleSeen.add(it.id);
+      perPerson[it.name] = (perPerson[it.name] || 0) + 1;
+      const overdueBy = overdueDaysAt(it, d);
+      if (overdueBy != null) {
+        reconnections++;
+        const prev = priorMeetingBefore(it, d);
+        const gap = prev ? daysBetween(parseISO(prev), parseISO(d)) : null;
+        if (gap != null && (!mostNeglected || gap > mostNeglected.gapDays)) mostNeglected = { name: it.name, gapDays: gap };
+      }
+    }
+  }
+  let mostConsistent = null;
+  for (const [name, c] of Object.entries(perPerson)) {
+    if (c >= 2 && (!mostConsistent || c > mostConsistent.count)) mostConsistent = { name, count: c };
+  }
+  return { ym, meetings, reconnections, distinctPeople: peopleSeen.size, mostNeglected, mostConsistent };
+}
+// Human-readable month label, e.g. "June 2026", from a YYYY-MM string (no Date parse drift).
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+function monthLabel(ym) {
+  const [y, m] = ym.split("-").map(Number);
+  return `${MONTH_NAMES[(m - 1) % 12]} ${y}`;
+}
+// Plain-text recap suitable for the clipboard / sharing. No names are sent anywhere —
+// the user explicitly copies it. Empty months get an encouraging, non-shaming line.
+function buildRecapText(ym) {
+  const s = monthlyRecapStats(ym);
+  const lines = [`Keep In Touch — ${monthLabel(s.ym)}`, ""];
+  if (s.meetings === 0) {
+    lines.push("No meetings logged yet this month — a fresh page. Who do you want to reach out to?");
+    return lines.join("\n");
+  }
+  lines.push(`• ${s.meetings} meeting${s.meetings === 1 ? "" : "s"} logged with ${s.distinctPeople} ${s.distinctPeople === 1 ? "person" : "people"}`);
+  if (s.reconnections > 0) lines.push(`• 🌱 ${s.reconnections} reconnection${s.reconnections === 1 ? "" : "s"} (someone you'd drifted from)`);
+  if (s.mostNeglected) lines.push(`• Longest-awaited catch-up: ${s.mostNeglected.name}, after ${s.mostNeglected.gapDays} days`);
+  if (s.mostConsistent) lines.push(`• Most consistent: ${s.mostConsistent.name} (${s.mostConsistent.count} times)`);
+  return lines.join("\n");
 }
 
 /* ---------- adaptive cadence suggestions (P3-F3) ---------- */
@@ -2818,6 +2885,30 @@ document.getElementById("s_paste_import").onclick = () => {
 /* export */
 document.getElementById("exportBtn").onclick = exportJson;
 document.getElementById("exportCsvBtn").onclick = exportHistoryCsv;
+
+/* monthly recap (roadmap #11) */
+function openRecap() {
+  document.getElementById("recapTitle").textContent = monthLabel(todayISO().slice(0, 7)) + " ✨";
+  document.getElementById("recapText").textContent = buildRecapText(todayISO().slice(0, 7));
+  openModal("recapModal");
+}
+document.getElementById("recapBtn").onclick = openRecap;
+document.getElementById("recapClose").onclick = () => closeModal("recapModal");
+document.getElementById("recapCopy").onclick = async () => {
+  const text = document.getElementById("recapText").textContent;
+  const btn = document.getElementById("recapCopy");
+  try {
+    await navigator.clipboard.writeText(text);
+    btn.textContent = "Copied ✓";
+  } catch (e) {
+    // clipboard API can fail (insecure context / permissions) — fall back to selection.
+    const pre = document.getElementById("recapText");
+    const r = document.createRange(); r.selectNodeContents(pre);
+    const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    btn.textContent = "Select + ⌘C";
+  }
+  setTimeout(() => { btn.textContent = "Copy summary"; }, 2000);
+};
 
 /* connect project file */
 document.getElementById("connectBtn").onclick = connectProjectFile;

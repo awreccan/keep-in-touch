@@ -2,6 +2,10 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.33.0 — 2026-06-06
+### Added
+- **"This month ✨" recap.** A new toolbar button shows a private monthly snapshot built entirely from your meeting log — meetings logged, people seen, reconnections, your longest-awaited catch-up, and who you've been most consistent with — with a one-tap "Copy summary" to share if you want. Nothing leaves your device unless you copy it. A quiet, encouraging month gets a "fresh page" nudge rather than an empty stat sheet — never any guilt framing.
+
 ## v1.32.0 — 2026-06-06
 ### Added
 - **Relationship-health glance.** A calm at-a-glance strip under the banner shows how your whole list is doing — a single stacked bar split into overdue / due-soon / never-met / on-track, with counts. Tap any band (in the bar or the legend) to filter the list to just those people; tap again or "clear filter" to show everyone. Pure overview — no new data, works offline.
