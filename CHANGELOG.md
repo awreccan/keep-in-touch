@@ -2,6 +2,10 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.22.0 — 2026-06-06
+### Fixed
+- **Hardened the History view against an edge-case crash.** If the history/timeline ever rendered for a person who'd just been removed (a stale reference), it could throw. Both now no-op safely instead. (Surfaced by a real end-to-end backend test.)
+
 ## v1.21.0 — 2026-06-06
 ### Added / Fixed (final audit items)
 - **Meeting notes now sync across devices via the Sheet.** Notes are stored in a new `notes` column (as a compact per-date map), so a note you add on your computer shows up on your phone and vice-versa. The human-readable `history` cell stays plain dates. **Requires redeploying `backend/Code.gs`.**

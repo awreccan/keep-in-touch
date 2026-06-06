@@ -643,10 +643,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.21.0";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.22.0";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.21.0: notes persist to Sheet + project-tombstones — final audit fixes)
+   Keep In Touch — renderer (v1.22.0: guard renderHist/renderTimeline against a missing histId)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -2061,7 +2061,7 @@ function computeMarkerX(dISO, firstISO, spanDays) {
 }
 function renderTimeline() {
   const el = document.getElementById("histViz"); if (!el) return;
-  const item = state.items[histId];
+  const item = state.items[histId]; if (!item) { el.innerHTML = ""; return; }
   const m = buildTimelineModel(item);
   if (!m.dates.length) { el.innerHTML = '<div class="tl-empty">No meetings logged yet — the timeline appears after the first one.</div>'; return; }
   if (m.dates.length === 1) {
@@ -2092,8 +2092,8 @@ function renderTimeline() {
 }
 
 function renderHist() {
+  const item = state.items[histId]; if (!item) return;   // guard: stale/cleared histId
   renderTimeline();
-  const item = state.items[histId];
   const ul = document.getElementById("histList"); ul.innerHTML = "";
   if (!item.history.length) { ul.innerHTML = '<li style="color:var(--text-dim)">No meetings logged yet.</li>'; return; }
   // Pair each entry with its original index, then show most-recent first.
