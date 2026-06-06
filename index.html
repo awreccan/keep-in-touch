@@ -643,10 +643,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.17.0";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.18.0";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.17.0: device-wide Sheet cfg + registry-tab cross-device discovery, redeploy-free)
+   Keep In Touch — renderer (v1.18.0: normalizeHistory drops corrupt [object Object] tokens — self-heals old data)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -864,7 +864,9 @@ function normalizeHistory(arr) {
   const byDate = new Map();
   for (const el of arr) {
     const date = typeof el === "string" ? el : (el && el.date);
-    if (!date || typeof date !== "string") continue;   // drop malformed
+    // Must be a real YYYY-MM-DD date — drops legacy junk AND old-corruption tokens
+    // like "[object" / "Object]," that the v1.11 Sheet bug left behind.
+    if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
     const note = (el && typeof el === "object" && el.note) ? String(el.note) : "";
     const prev = byDate.get(date);
     const keepNote = note || (prev && prev.note) || "";

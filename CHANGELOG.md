@@ -2,6 +2,10 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.18.0 — 2026-06-05
+### Fixed
+- **Old corrupted data now self-heals on load.** If a project's meeting history was previously damaged (cells showing `[object Object]` from the earlier sync bug), opening it now silently drops the garbage tokens, keeps any real dates, and writes clean data back on the next save — no crash, no manual cleanup needed. (Meeting dates are validated as real `YYYY-MM-DD` values before use.)
+
 ## v1.17.0 — 2026-06-05
 ### Fixed
 - **Your Google Sheet data now loads on other devices.** Connecting the Sheet is now a once-per-device action that applies to *all* your projects (previously each project needed its own connection, so a freshly-connected device showed only an empty local list). After connecting, if your current list is empty but the Sheet has others, the project picker opens automatically. To pull a specific list, open the project switcher and type its tab name (e.g. `ppl`) — it loads from the Sheet and is remembered.
