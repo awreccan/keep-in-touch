@@ -2,6 +2,13 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.15.0 — 2026-06-05
+### Changed
+- **Visual & UX refresh (research-driven).** A calmer, more considered look throughout: warmer neutral background, flatter surfaces with crisp hairline borders (no heavy shadows), a tighter type hierarchy, and gentle motion (cards ease in, modals/toasts settle in, a subtle "saved ✓" pulse) — all of which respect your "reduce motion" system setting.
+- **Status is clearer and more accessible.** Overdue / due-soon / on-track now read with a leading colored dot *and* a higher-contrast label (meets WCAG AA in both light and dark), so status no longer relies on color alone.
+- **Better on touch + keyboard.** Buttons and tap targets grow to a comfortable 44px on touch devices, and every control now shows a visible focus ring for keyboard navigation.
+- **New app icon.** Replaced the off-centre placeholder with a crisp, properly centered icon — a recurrence loop wrapping ascending ranked bars, reflecting what the app is: recurring keep-in-touch reminders with your own priority ranking. Installs cleanly on Android (maskable-safe) and iOS.
+
 ## v1.14.0 — 2026-06-05
 ### Added
 - **History timeline (P3-F8).** The History view now opens with a compact sparkline of your meetings over time — each dot is a meeting, the line between them is color-coded green/amber/red by whether you kept pace with the cadence, and a dashed trailing segment shows time since the last meeting. A one-line summary calls out your longest on-cadence streak and longest gap. Hover any dot for the exact date and days since the previous meeting.

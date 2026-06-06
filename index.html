@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Keep In Touch</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👋</text></svg>">
+<link rel="icon" type="image/svg+xml" href="assets/icon.svg">
 <!-- PWA: installable on Android + macOS/iOS so it lives as an app icon, opens prompt-free.
      All PWA code no-ops on file:// (SW needs https or localhost). -->
 <link rel="manifest" href="manifest.webmanifest">
@@ -16,34 +16,46 @@
 <link rel="apple-touch-icon" href="assets/icon-192.png">
 <style>
   :root {
-    --bg: #f6f7f9;
+    --bg: #f7f6f4;            /* warm-neutral, one step off cool-gray */
     --surface: #ffffff;
-    --surface-2: #eef1f5;
-    --border: #d9dee5;
+    --surface-2: #eef0ee;
+    --border: #e2e0db;
     --text: #1b2330;
-    --text-dim: #677488;
+    --text-dim: #6b7280;      /* true-neutral; 4.83 on white = AA */
     --accent: #2f6df0;
     --accent-fg: #ffffff;
-    --overdue: #e0463f;
-    --due-soon: #c87b13;
-    --on-track: #1f9d57;
-    --shadow: 0 1px 2px rgba(20,30,50,.06), 0 4px 14px rgba(20,30,50,.05);
+    --overdue: #d1453c;       /* stripe / dot / banner-border / timeline hue */
+    --due-soon: #b9740f;
+    --on-track: #2a8f5a;
+    --overdue-text: #b3322a;  /* pill text only — AA on the tint */
+    --due-soon-text: #8a5207;
+    --on-track-text: #1a6e42;
+    --shadow: 0 1px 2px rgba(20,30,50,.04);          /* flattened, single layer */
+    --shadow-pop: 0 6px 20px rgba(20,30,50,.10);     /* floating elements only */
     --radius: 12px;
+    --radius-sm: 8px;
+    --radius-lg: 16px;
     --maxw: 640px;
+    --ease-out: cubic-bezier(.22, 1, .36, 1);
+    --dur: .18s;
   }
   html[data-theme="dark"] {
     --bg: #0f1419;
-    --surface: #1a2129;
-    --surface-2: #232c36;
-    --border: #2e3a47;
+    --surface: #1b222b;       /* +luminance for elevation */
+    --surface-2: #252f3a;
+    --border: #313d4a;
     --text: #e6edf3;
-    --text-dim: #8b97a3;
+    --text-dim: #939eaa;      /* 5.89 on surface = AA */
     --accent: #4a9eff;
     --accent-fg: #07101d;
-    --overdue: #ff6b6b;
-    --due-soon: #ffb74a;
-    --on-track: #4ade80;
-    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.35);
+    --overdue: #ff7a72;
+    --due-soon: #f5b34a;
+    --on-track: #54d98a;
+    --overdue-text: #ff7a72;  /* dark pills pass 4.7-6.3:1 — reuse bright hue */
+    --due-soon-text: #f5b34a;
+    --on-track-text: #54d98a;
+    --shadow: 0 1px 2px rgba(0,0,0,.25);
+    --shadow-pop: 0 8px 26px rgba(0,0,0,.45);
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html { font-size: 100%; }
@@ -73,10 +85,11 @@
     width: 2.2rem; height: 2.2rem; display: grid; place-items: center;
     border: 1px solid var(--border); background: var(--surface); color: var(--text);
     border-radius: 50%; cursor: pointer; font-size: 1.05rem; line-height: 1;
-    transition: background .15s, transform .1s;
+    transition: background var(--dur) var(--ease-out), transform .1s var(--ease-out);
   }
   .icon-btn:hover { background: var(--surface-2); }
   .icon-btn:active { transform: scale(.92); }
+  @media (pointer: coarse) { .icon-btn { width: 2.75rem; height: 2.75rem; } }
 
   .project-bar {
     font-size: 0.875rem; color: var(--text-dim); margin-top: 0.6rem;
@@ -112,34 +125,35 @@
   .save-status.saving { color: var(--text-dim); background: var(--surface-2); }
   .save-status.saved { color: var(--on-track); background: color-mix(in srgb, var(--on-track) 14%, transparent); }
   .save-status.failed { color: var(--overdue); background: color-mix(in srgb, var(--overdue) 16%, transparent); }
-  .save-status.saved.pulse { animation: savedpulse .5s ease; }
+  .save-status.saved.pulse { animation: savedpulse .42s var(--ease-out); }
   @keyframes savedpulse { 0% { transform: scale(.8); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
 
   .modes { display: flex; gap: 0.4rem; margin-top: 0.7rem; background: var(--surface-2); padding: 0.25rem; border-radius: 999px; }
   .mode-btn {
     flex: 1; padding: 0.5rem; border: none; background: transparent;
     color: var(--text-dim); border-radius: 999px; font-size: 0.875rem; cursor: pointer; font-weight: 600;
-    transition: background .15s, color .15s;
+    transition: background var(--dur) var(--ease-out), color var(--dur) var(--ease-out);
   }
-  .mode-btn.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+  .mode-btn.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-pop); }
+  @media (pointer: coarse) { .mode-btn { min-height: 44px; } }
 
   .banner {
     margin: 0.7rem 1rem 0; padding: 0.6rem 0.85rem; border-radius: var(--radius);
     background: var(--surface-2); font-size: 0.875rem; color: var(--text-dim);
   }
-  .banner.alert { color: var(--due-soon); background: color-mix(in srgb, var(--due-soon) 12%, var(--surface)); }
+  .banner.alert { color: var(--due-soon-text); background: color-mix(in srgb, var(--due-soon) 12%, var(--surface)); border-left: 3px solid var(--due-soon); }
 
   main { padding: 0.9rem 1rem 5rem; }
 
   .toolbar { display: flex; gap: 0.5rem; margin-bottom: 0.9rem; flex-wrap: wrap; }
   button.btn {
     padding: 0.55rem 0.85rem; border: 1px solid var(--border); background: var(--surface);
-    color: var(--text); border-radius: 10px; font-size: 0.875rem; cursor: pointer; font-weight: 600;
-    box-shadow: var(--shadow); transition: background .15s, transform .1s;
+    color: var(--text); border-radius: var(--radius-sm); font-size: 0.875rem; cursor: pointer; font-weight: 600;
+    box-shadow: none; transition: background var(--dur) var(--ease-out), transform .1s var(--ease-out);
   }
   button.btn:hover { background: var(--surface-2); }
   button.btn:active { transform: scale(.97); }
-  button.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+  button.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); box-shadow: var(--shadow); }
 
   ul.list { list-style: none; margin: 0; padding: 0; }
   /* Grid rank mode: widen the page and lay cards out in responsive columns */
@@ -159,52 +173,80 @@
   }
   .grid-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   li.card {
-    background: var(--surface); border: 1px solid var(--border); border-left-width: 4px;
+    background: var(--surface); border: 1px solid var(--border); border-left-width: 3px;
     border-radius: var(--radius); padding: 0.85rem; margin-bottom: 0.65rem;
     display: flex; align-items: flex-start; gap: 0.65rem; box-shadow: var(--shadow);
-    transition: transform .1s, box-shadow .15s;
+    transition: transform var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out);
+    animation: cardIn .26s var(--ease-out) both;
   }
-  li.card.dragging { opacity: 0.45; }
+  /* Only the first screenful staggers in; the rest just appear (avoids a full re-fade on every re-render). */
+  li.card:nth-child(2) { animation-delay: 40ms; }
+  li.card:nth-child(3) { animation-delay: 80ms; }
+  li.card:nth-child(4) { animation-delay: 120ms; }
+  li.card:nth-child(5) { animation-delay: 160ms; }
+  li.card:nth-child(6) { animation-delay: 200ms; }
+  li.card:nth-child(n+7) { animation: none; }
+  @keyframes cardIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @media (hover: hover) {
+    li.card:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--border) 55%, var(--text-dim)); }
+  }
+  li.card.dragging { opacity: 0.6; transform: scale(1.02); box-shadow: var(--shadow-pop); }
   li.card.drag-over { box-shadow: 0 -3px 0 var(--accent), var(--shadow); }
-  .card.overdue { border-left-color: var(--overdue); }
-  .card.due-soon { border-left-color: var(--due-soon); }
-  .card.on-track { border-left-color: var(--on-track); }
+  .card.overdue { border-left-color: var(--overdue); background: linear-gradient(90deg, color-mix(in srgb, var(--overdue) 5%, var(--surface)) 0%, var(--surface) 36%); }
+  .card.due-soon { border-left-color: var(--due-soon); background: linear-gradient(90deg, color-mix(in srgb, var(--due-soon) 4%, var(--surface)) 0%, var(--surface) 36%); }
+  .card.on-track { border-left-color: var(--on-track); background: linear-gradient(90deg, color-mix(in srgb, var(--on-track) 3%, var(--surface)) 0%, var(--surface) 36%); }
 
   .handle {
     cursor: grab; color: var(--text-dim); font-size: 1.3rem; line-height: 1;
-    padding: 0.1rem 0.2rem; touch-action: none; user-select: none;
+    padding: 0.35rem 0.3rem; touch-action: none; user-select: none; display: inline-grid; place-items: center;
   }
+  @media (pointer: coarse) { .handle { min-width: 44px; min-height: 44px; } }
+  @media (hover: hover) { .handle:hover { color: var(--text); } }
   .handle:active { cursor: grabbing; }
   .card-body { flex: 1; min-width: 0; }
-  .card-title { font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+  .card-title { font-size: 1rem; font-weight: 650; letter-spacing: -0.01em; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
   .pill {
+    display: inline-flex; align-items: center; gap: 0.32rem;
     font-size: 0.75rem; padding: 0.1rem 0.5rem; border-radius: 999px; font-weight: 700; white-space: nowrap;
   }
-  .pill.overdue { background: color-mix(in srgb, var(--overdue) 18%, transparent); color: var(--overdue); }
-  .pill.due-soon { background: color-mix(in srgb, var(--due-soon) 20%, transparent); color: var(--due-soon); }
-  .pill.on-track { background: color-mix(in srgb, var(--on-track) 16%, transparent); color: var(--on-track); }
+  /* status carried by BOTH a leading dot and an AA-contrast text color (not hue alone) */
+  .pill.overdue { background: color-mix(in srgb, var(--overdue) 18%, transparent); color: var(--overdue-text); }
+  .pill.due-soon { background: color-mix(in srgb, var(--due-soon) 20%, transparent); color: var(--due-soon-text); }
+  .pill.on-track { background: color-mix(in srgb, var(--on-track) 16%, transparent); color: var(--on-track-text); }
   .pill.snoozed { background: color-mix(in srgb, var(--text-dim) 18%, transparent); color: var(--text-dim); }
+  .pill.overdue::before, .pill.due-soon::before, .pill.on-track::before {
+    content: ""; width: 0.42rem; height: 0.42rem; border-radius: 50%; background: currentColor; flex: none;
+  }
+  /* snoozed pill already leads with a 💤 glyph — no extra dot */
   .cadence-suggest {
     font-size: 0.8125rem; color: var(--text-dim); margin-top: 0.45rem; padding: 0.45rem 0.6rem;
-    border-radius: 9px; background: color-mix(in srgb, var(--accent) 9%, var(--surface));
-    border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+    border-radius: var(--radius-sm); background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--border));
     display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.5rem;
   }
   .cadence-suggest .cs-actions { display: flex; gap: 0.4rem; margin-left: auto; }
-  .card-meta { font-size: 0.8125rem; color: var(--text-dim); margin-top: 0.25rem; }
+  .card-meta { font-size: 0.8125rem; color: var(--text-dim); margin-top: 0.3rem; line-height: 1.4; }
   .card-actions { display: flex; gap: 0.4rem; margin-top: 0.6rem; flex-wrap: wrap; }
   .mini {
     font-size: 0.8125rem; padding: 0.3rem 0.6rem; border: 1px solid var(--border);
-    background: transparent; color: var(--text-dim); border-radius: 8px; cursor: pointer; font-weight: 600;
+    background: transparent; color: var(--text-dim); border-radius: var(--radius-sm); cursor: pointer; font-weight: 600;
+    transition: color var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out), background var(--dur) var(--ease-out);
   }
   .mini:hover { color: var(--text); border-color: var(--text-dim); }
-  .mini.accent { color: var(--accent); border-color: var(--accent); }
+  .mini.accent { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); }
+  @media (pointer: coarse) { .mini { min-height: 44px; padding: 0.5rem 0.8rem; } }
 
-  .empty { text-align: center; color: var(--text-dim); padding: 3rem 1.25rem; font-size: 0.9375rem; }
+  .empty {
+    text-align: center; color: var(--text-dim); padding: 3.5rem 1.5rem; font-size: 1rem; line-height: 1.5;
+    border: 1.5px dashed var(--border); border-radius: var(--radius-lg);
+    background: color-mix(in srgb, var(--surface) 60%, transparent); max-width: 30rem; margin: 1rem auto;
+  }
+  .empty b { color: var(--accent); }
 
   /* Archive undo toast + parked-card styling (F7) */
-  .toast { margin: 0.7rem 0 0; padding: 0.6rem 0.85rem; border-radius: var(--radius); background: var(--surface-2); color: var(--text); font-size: 0.875rem; display: none; align-items: center; justify-content: space-between; gap: 0.5rem; }
-  .toast.show { display: flex; }
+  .toast { margin: 0.7rem 0 0; padding: 0.6rem 0.85rem; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--border); color: var(--text); font-size: 0.875rem; display: none; align-items: center; justify-content: space-between; gap: 0.5rem; box-shadow: var(--shadow-pop); }
+  .toast.show { display: flex; animation: toastIn .22s var(--ease-out); }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   .toast button { background: none; border: none; color: var(--accent); font-weight: 700; cursor: pointer; font-size: 0.875rem; font-family: inherit; }
   body.archived-view li.card { opacity: 0.92; }
 
@@ -245,7 +287,7 @@
     flex: 1; padding: 0.45rem; border: none; background: transparent; color: var(--text-dim);
     border-radius: 999px; font-size: 0.8125rem; cursor: pointer; font-weight: 600;
   }
-  .batch-sub button.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+  .batch-sub button.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-pop); }
   .batch-hint { font-size: 0.8125rem; color: var(--text-dim); margin: 0 0 0.7rem; }
   .axis-label { font-size: 0.75rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; margin: 0.2rem 0 0.4rem; }
   .axis { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 1.1rem; }
@@ -260,25 +302,28 @@
   .pool { display: flex; flex-wrap: wrap; gap: 0.4rem; }
   .pool-item {
     display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.45rem 0.7rem;
-    border: 1px solid var(--border); border-radius: 999px; background: var(--surface); box-shadow: var(--shadow);
+    border: 1px solid var(--border); border-radius: 999px; background: var(--surface); box-shadow: none;
     cursor: grab; font-size: 0.875rem; font-weight: 600; touch-action: none; user-select: none;
   }
   .pool-item:active { cursor: grabbing; }
-  .pool-item.dragging { opacity: 0.45; }
+  .pool-item.dragging { opacity: 0.6; transform: scale(1.03); box-shadow: var(--shadow-pop); }
   .pool-item .val { font-size: 0.75rem; font-weight: 700; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); border-radius: 999px; padding: 0.05rem 0.45rem; }
   .pool-item.flash { animation: poolflash .6s ease; }
   @keyframes poolflash { 0% { background: color-mix(in srgb, var(--on-track) 35%, var(--surface)); } 100% { background: var(--surface); } }
 
   /* Modal */
   .modal-backdrop {
-    position: fixed; inset: 0; background: rgba(10,15,25,.5); display: none;
+    position: fixed; inset: 0; background: color-mix(in srgb, var(--bg) 45%, rgba(0,0,0,.55)); display: none;
     align-items: center; justify-content: center; z-index: 100; padding: 1rem;
+    backdrop-filter: blur(2px);
   }
   .modal-backdrop.open { display: flex; }
+  .modal-backdrop.open .modal { animation: modalIn .2s var(--ease-out); }
+  @keyframes modalIn { from { opacity: 0; transform: translateY(8px) scale(.99); } to { opacity: 1; transform: none; } }
   .modal {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
     padding: 1.25rem; width: 100%; max-width: 27rem; max-height: 90vh; overflow-y: auto;
-    box-shadow: 0 20px 60px rgba(10,15,25,.35);
+    box-shadow: 0 16px 48px rgba(10,15,25,.30);
   }
   .modal h2 { margin: 0 0 0.9rem; font-size: 1.1rem; }
   label.fld { display: block; margin-bottom: 0.8rem; font-size: 0.8125rem; color: var(--text-dim); font-weight: 600; }
@@ -338,6 +383,19 @@
     background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 37%, var(--surface) 63%);
     background-size: 400% 100%; animation: shimmer 1.4s ease infinite; }
   @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+
+  /* Keyboard focus ring (the base reset kills the mobile tap highlight; this restores a11y focus) */
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: inherit; }
+  :focus:not(:focus-visible) { outline: none; }
+
+  /* Respect reduced-motion: drop time-based motion, keep state styles (saved ✓, drag lift, status) visible. MUST be last. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .001ms !important; animation-iteration-count: 1 !important;
+      transition-duration: .001ms !important; scroll-behavior: auto !important;
+    }
+    li.card { animation: none; }
+  }
 </style>
 </head>
 <body>
@@ -576,7 +634,7 @@
 "use strict";
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.14.0: history timeline sparkline with streaks/gaps)
+   Keep In Touch — renderer (v1.15.0: research-driven visual/UX refresh + new app icon)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
