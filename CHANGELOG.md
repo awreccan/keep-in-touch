@@ -2,6 +2,10 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.30.0 — 2026-06-06
+### Fixed (eighth-audit finding)
+- **Pressing Enter in Settings no longer triggers the wrong action.** The Settings panel has two main buttons (Connect/Sync and Import), so pressing Enter while editing the "remind X days before" field could fire "Connect / Sync now" and close the panel mid-edit. Enter now only auto-submits a dialog when it has a single unambiguous primary action; in panels with more than one (like Settings) Enter does nothing and you tap the button you want. Single-action dialogs (Add person, Snooze, etc.) still submit on Enter as before.
+
 ## v1.29.0 — 2026-06-06
 ### Fixed (seventh-audit finding)
 - **Security: hardened number fields against a crafted import.** Cadence, remind-days, and the global remind setting are now coerced to real numbers the moment data is loaded (from a JSON/paste import, file, or sheet). Previously a hand-crafted import could place markup in those fields, which rendered unescaped on a card — the same cross-site-scripting class as the earlier date-field fixes, now closed structurally (a number simply can't carry markup). Garbage values fall back to safe defaults (cadence 30, remind = inherit global, global 3).

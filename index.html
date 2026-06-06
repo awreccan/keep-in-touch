@@ -643,10 +643,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.29.0";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.30.0";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.29.0: audit-7 fix — coerce numeric scalars on ingest (closes import-markup XSS class))
+   Keep In Touch — renderer (v1.30.0: audit-8 fix — Enter only auto-submits a single-primary modal (no wrong-button fire))
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -2351,7 +2351,13 @@ document.addEventListener("keydown", e => {
     if (id === "onboardModal") finishOnboarding(); else closeModal(id);
   } else if (e.key === "Enter" && e.target.tagName === "INPUT" && e.target.type !== "checkbox") {
     const dialog = document.getElementById(id).querySelector(".modal");
-    const primary = dialog && (dialog.querySelector("button.primary") || dialog.querySelector("button.accent"));
+    // Only auto-submit when the dialog has EXACTLY ONE primary action — otherwise
+    // intent is ambiguous and we'd fire the wrong button. The Settings modal has two
+    // primaries ("Connect / Sync now" + "Import pasted data"), so Enter in its remind
+    // field used to wrongly trigger Connect and close the modal mid-edit. With >1
+    // primary, Enter is a safe no-op (the user Tabs to the intended button).
+    const primaries = dialog ? dialog.querySelectorAll("button.primary") : [];
+    const primary = primaries.length === 1 ? primaries[0] : (dialog && dialog.querySelectorAll("button.accent").length === 1 ? dialog.querySelector("button.accent") : null);
     if (primary) { e.preventDefault(); primary.click(); }
   }
 });
