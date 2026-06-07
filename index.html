@@ -303,6 +303,14 @@
   @media (pointer: coarse) { .chip { min-height: 44px; display: inline-flex; align-items: center; } }
   /* Contact-info device-local hint in the edit modal. */
   .fld-hint { font-size: 0.75rem; color: var(--text-dim); margin: 0.1rem 0 0; }
+  /* Talking-points thread note on a card (roadmap #5). */
+  .thread-note {
+    margin-top: 0.55rem; padding: 0.4rem 0.6rem; border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--accent) 5%, var(--surface-2));
+    border-left: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
+    font-size: 0.8125rem; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  #f_thread { resize: vertical; font-family: inherit; }
 
   .empty {
     text-align: center; color: var(--text-dim); padding: 3.5rem 1.5rem; font-size: 1rem; line-height: 1.5;
@@ -560,6 +568,9 @@
       </label>
     </div>
     <p class="fld-hint" id="f_contact_hint">📱 Saved on this device only (until you connect a Sheet with contact columns).</p>
+    <label class="fld">Pick up next time (optional)
+      <textarea id="f_thread" rows="2" placeholder="e.g. ask how the move went; their kid started school" autocomplete="off"></textarea>
+    </label>
     <div class="modal-actions">
       <button class="btn" id="editCancel">Cancel</button>
       <button class="btn primary" id="editSave">Save</button>
@@ -735,10 +746,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.35.0";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.36.0";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.35.0: roadmap #1 — one-tap reach-out: tel/sms/mailto chips, contacts stored device-local & sync-safe)
+   Keep In Touch — renderer (v1.36.0: roadmap #5 — talking points: one freeform "pick up next time" note per person, device-local & sync-safe)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -925,6 +936,25 @@ function setContact(id, phone, email) {
 }
 // tel: strips spaces/parens; sms/mailto use the raw trimmed value.
 function telHref(phone) { return "tel:" + String(phone).replace(/[^\d+]/g, ""); }
+
+/* ---------- talking points / threads (roadmap v2 #5) ----------
+   One freeform "pick up next time" note per person. Same device-local, sync-safe
+   pattern as contacts (separate per-project map, OUTSIDE `state`). It's your own
+   prep note, useful even device-local; upgrades to synced when the backend gains a
+   column (see ROADMAP-v2.md #5). Kept to ONE freeform field — deliberately not
+   form-heavy journaling (a documented over-engineering failure mode for this app). */
+function threadsKey() { return "keepInTouch.threads." + PROJECT; }
+function loadThreads() {
+  try { const m = JSON.parse(localStorage.getItem(threadsKey()) || "{}"); return (m && typeof m === "object") ? m : {}; }
+  catch (e) { return {}; }
+}
+function threadFor(id) { return loadThreads()[id] || ""; }
+function setThread(id, text) {
+  const m = loadThreads();
+  const t = (text || "").trim();
+  if (!t) delete m[id]; else m[id] = t;
+  try { localStorage.setItem(threadsKey(), JSON.stringify(m)); } catch (err) { console.warn("threads save failed", err); }
+}
 // One-tap reach-out chips for a card. Real <a href> links (native tel/sms/mailto) so
 // they work on mobile without JS. Returns "" when the person has no saved contact info.
 // href values are attribute-escaped; the visible glyphs are static. data-noopen stops the
@@ -2160,6 +2190,7 @@ function render() {
             </span></div>` : (drift ? `<div class="cadence-suggest" role="note">
             🫶 You usually see ${escapeHtml(item.name)} ~every ${drift.observed}d — it's been ${drift.sinceLast}d. Time for a catch-up?
             </div>` : "")}
+          ${threadFor(item.id) ? `<div class="thread-note" title="Pick up next time">💬 ${escapeHtml(threadFor(item.id))}</div>` : ""}
           ${reachOutChips(item.id)}
           <div class="card-actions">
             ${(item.archived || snoozed) ? "" : '<button class="mini accent" data-act="met">✔ Met today</button>'}
@@ -2736,6 +2767,7 @@ function openEdit(id) {
   const c = id ? contactFor(id) : {};
   document.getElementById("f_phone").value = c.phone || "";
   document.getElementById("f_email").value = c.email || "";
+  document.getElementById("f_thread").value = id ? threadFor(id) : "";
   openModal("editModal");
   document.getElementById("f_name").focus();
 }
@@ -2767,8 +2799,10 @@ document.getElementById("editSave").onclick = () => {
     state.manualOrder.push(id);
     contactId = id;
   }
-  // Contact info is stored device-locally, OUTSIDE state (no Sheet-sync involvement).
+  // Contact info + talking-points thread are stored device-locally, OUTSIDE state
+  // (no Sheet-sync involvement).
   setContact(contactId, phone, email);
+  setThread(contactId, document.getElementById("f_thread").value);
   save(); render(); closeModal("editModal");
 };
 
@@ -3095,9 +3129,11 @@ document.getElementById("p_rename").onclick = async () => {
   if (dataRaw) localStorage.setItem("keepInTouch.project." + to, dataRaw);
   const sheetRaw = localStorage.getItem("keepInTouch.sheet." + PROJECT);
   if (sheetRaw) localStorage.setItem("keepInTouch.sheet." + to, sheetRaw);
-  // carry the device-local reach-out contacts map across the rename too
+  // carry the device-local reach-out contacts + talking-points maps across the rename too
   const contactsRaw = localStorage.getItem("keepInTouch.contacts." + PROJECT);
   if (contactsRaw) localStorage.setItem("keepInTouch.contacts." + to, contactsRaw);
+  const threadsRaw = localStorage.getItem("keepInTouch.threads." + PROJECT);
+  if (threadsRaw) localStorage.setItem("keepInTouch.threads." + to, threadsRaw);
   try {
     const fh = await idbGet("file." + PROJECT);
     if (fh) await idbSet("file." + to, fh);
@@ -3106,6 +3142,7 @@ document.getElementById("p_rename").onclick = async () => {
   localStorage.removeItem("keepInTouch.project." + PROJECT);
   localStorage.removeItem("keepInTouch.sheet." + PROJECT);
   localStorage.removeItem("keepInTouch.contacts." + PROJECT);
+  localStorage.removeItem("keepInTouch.threads." + PROJECT);
   unregisterProject(PROJECT);
   registerProject(to);
   gotoProject(to);

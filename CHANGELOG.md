@@ -2,6 +2,14 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.36.0 — 2026-06-07
+
+- **Talking points** (roadmap #5) — a single freeform "pick up next time" note per person
+  (e.g. *"ask how the move went; their kid started school"*), shown as a subtle 💬 line on
+  their card so you walk into the next conversation prepared. One field, deliberately not
+  form-heavy journaling. Saved **on this device only** like contact info — kept out of the
+  synced data so it can't disturb cross-device sync — and carried across project rename.
+
 ## v1.35.0 — 2026-06-07
 
 - **One-tap reach-out** (roadmap #1) — add a phone and/or email to anyone in the edit
