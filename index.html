@@ -291,6 +291,19 @@
   .mini.accent { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); }
   @media (pointer: coarse) { .mini { min-height: 44px; padding: 0.5rem 0.8rem; } }
 
+  /* Reach-out chips (roadmap #1): one-tap call/text/email links on a card. */
+  .reach-chips { display: flex; gap: 0.4rem; margin-top: 0.55rem; flex-wrap: wrap; }
+  .chip {
+    font-size: 0.8125rem; padding: 0.3rem 0.65rem; border-radius: 999px; font-weight: 600;
+    text-decoration: none; border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+    color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent);
+    transition: background var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out);
+  }
+  .chip:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); border-color: var(--accent); }
+  @media (pointer: coarse) { .chip { min-height: 44px; display: inline-flex; align-items: center; } }
+  /* Contact-info device-local hint in the edit modal. */
+  .fld-hint { font-size: 0.75rem; color: var(--text-dim); margin: 0.1rem 0 0; }
+
   .empty {
     text-align: center; color: var(--text-dim); padding: 3.5rem 1.5rem; font-size: 1rem; line-height: 1.5;
     border: 1.5px dashed var(--border); border-radius: var(--radius-lg);
@@ -538,6 +551,15 @@
     <label class="fld">Remind me X days before due (optional, overrides global)
       <input type="number" id="f_remind" min="0" placeholder="(use global)">
     </label>
+    <div class="row2">
+      <label class="fld">Phone (optional)
+        <input type="tel" id="f_phone" placeholder="for one-tap call / text" autocomplete="off">
+      </label>
+      <label class="fld">Email (optional)
+        <input type="email" id="f_email" placeholder="for one-tap email" autocomplete="off">
+      </label>
+    </div>
+    <p class="fld-hint" id="f_contact_hint">📱 Saved on this device only (until you connect a Sheet with contact columns).</p>
     <div class="modal-actions">
       <button class="btn" id="editCancel">Cancel</button>
       <button class="btn primary" id="editSave">Save</button>
@@ -713,10 +735,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.34.0";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.35.0";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.34.0: roadmap feature — Garden 🌱 decay view: affective tiles whose plant health = freshness ratio)
+   Keep In Touch — renderer (v1.35.0: roadmap #1 — one-tap reach-out: tel/sms/mailto chips, contacts stored device-local & sync-safe)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -880,6 +902,46 @@ function setSheetCfg(cfg) {
 // local item (it does not replace it) and clears each only when its remote parent
 // scalar is gone — see the preferRemoteScalars branch in unionStates.
 const SCALAR_FIELDS = ["name", "cadenceDays", "remindDays", "archived", "snoozedUntil", "suggestDismissed"];
+
+/* ---------- reach-out contact info (roadmap v2 #1) ----------
+   Phone/email live in a SEPARATE per-project localStorage map keyed by person id —
+   deliberately OUTSIDE `state`, so the Sheet sync / unionStates / SCALAR_FIELDS never
+   see them. That keeps this 100% device-local with ZERO sync risk: adding these to
+   SCALAR_FIELDS against the current backend would re-open the v1.28 perpetual-dirty bug
+   (Code.gs drops unknown columns on write → the person never matches the synced baseline).
+   When Sam redeploys Code.gs with phone/email columns, a follow-up can migrate this map
+   into synced scalars. Until then: honest, device-local, never lost. */
+function contactsKey() { return "keepInTouch.contacts." + PROJECT; }
+function loadContacts() {
+  try { const m = JSON.parse(localStorage.getItem(contactsKey()) || "{}"); return (m && typeof m === "object") ? m : {}; }
+  catch (e) { return {}; }
+}
+function contactFor(id) { return loadContacts()[id] || {}; }
+function setContact(id, phone, email) {
+  const m = loadContacts();
+  const p = (phone || "").trim(), e = (email || "").trim();
+  if (!p && !e) delete m[id]; else m[id] = { ...(p ? { phone: p } : {}), ...(e ? { email: e } : {}) };
+  try { localStorage.setItem(contactsKey(), JSON.stringify(m)); } catch (err) { console.warn("contacts save failed", err); }
+}
+// tel: strips spaces/parens; sms/mailto use the raw trimmed value.
+function telHref(phone) { return "tel:" + String(phone).replace(/[^\d+]/g, ""); }
+// One-tap reach-out chips for a card. Real <a href> links (native tel/sms/mailto) so
+// they work on mobile without JS. Returns "" when the person has no saved contact info.
+// href values are attribute-escaped; the visible glyphs are static. data-noopen stops the
+// card-level click handlers from firing when a chip is tapped.
+function reachOutChips(id) {
+  const c = contactFor(id);
+  if (!c.phone && !c.email) return "";
+  const chips = [];
+  if (c.phone) {
+    chips.push(`<a class="chip" data-noopen href="${escapeHtml(telHref(c.phone))}" title="Call ${escapeHtml(c.phone)}">📞 Call</a>`);
+    chips.push(`<a class="chip" data-noopen href="${escapeHtml("sms:" + telHref(c.phone).slice(4))}" title="Text ${escapeHtml(c.phone)}">💬 Text</a>`);
+  }
+  if (c.email) {
+    chips.push(`<a class="chip" data-noopen href="${escapeHtml("mailto:" + c.email)}" title="Email ${escapeHtml(c.email)}">✉️ Email</a>`);
+  }
+  return `<div class="reach-chips">${chips.join("")}</div>`;
+}
 function scalarsOf(item) { const o = {}; for (const f of SCALAR_FIELDS) if (item[f] !== undefined) o[f] = item[f]; return o; }
 function scalarsSnapshot(st) { const m = {}; for (const [id, it] of Object.entries((st && st.items) || {})) m[id] = scalarsOf(it); return m; }
 // Record the scalar snapshot last CONFIRMED on the Sheet. Takes a pre-built
@@ -2098,6 +2160,7 @@ function render() {
             </span></div>` : (drift ? `<div class="cadence-suggest" role="note">
             🫶 You usually see ${escapeHtml(item.name)} ~every ${drift.observed}d — it's been ${drift.sinceLast}d. Time for a catch-up?
             </div>` : "")}
+          ${reachOutChips(item.id)}
           <div class="card-actions">
             ${(item.archived || snoozed) ? "" : '<button class="mini accent" data-act="met">✔ Met today</button>'}
             <button class="mini" data-act="hist">History</button>
@@ -2670,6 +2733,9 @@ function openEdit(id) {
   syncCustomCadenceVisibility();                              // no focus here — f_name.focus() below wins
   document.getElementById("f_lastmet").value = item ? (lastMet(item) || "") : "";
   document.getElementById("f_remind").value = item && item.remindDays != null ? item.remindDays : "";
+  const c = id ? contactFor(id) : {};
+  document.getElementById("f_phone").value = c.phone || "";
+  document.getElementById("f_email").value = c.email || "";
   openModal("editModal");
   document.getElementById("f_name").focus();
 }
@@ -2684,18 +2750,25 @@ document.getElementById("editSave").onclick = () => {
   const lastMetVal = document.getElementById("f_lastmet").value;
   const remindVal = document.getElementById("f_remind").value;
   const remindDays = remindVal === "" ? null : Math.max(0, parseInt(remindVal));
+  const phone = document.getElementById("f_phone").value;
+  const email = document.getElementById("f_email").value;
+  let contactId;
   if (editingId) {
     const item = state.items[editingId];
     item.name = name; item.cadenceDays = cadence; item.remindDays = remindDays;
     if (lastMetVal && lastMet(item) !== lastMetVal && !histDates(item).includes(lastMetVal)) {
       item.history.push({ date: lastMetVal }); item.history.sort(byDateAsc);
     }
+    contactId = editingId;
   } else {
     const id = uid();
     state.items[id] = { id, name, cadenceDays: cadence, remindDays,
       history: lastMetVal ? [{ date: lastMetVal }] : [], archived: false };
     state.manualOrder.push(id);
+    contactId = id;
   }
+  // Contact info is stored device-locally, OUTSIDE state (no Sheet-sync involvement).
+  setContact(contactId, phone, email);
   save(); render(); closeModal("editModal");
 };
 
@@ -3022,6 +3095,9 @@ document.getElementById("p_rename").onclick = async () => {
   if (dataRaw) localStorage.setItem("keepInTouch.project." + to, dataRaw);
   const sheetRaw = localStorage.getItem("keepInTouch.sheet." + PROJECT);
   if (sheetRaw) localStorage.setItem("keepInTouch.sheet." + to, sheetRaw);
+  // carry the device-local reach-out contacts map across the rename too
+  const contactsRaw = localStorage.getItem("keepInTouch.contacts." + PROJECT);
+  if (contactsRaw) localStorage.setItem("keepInTouch.contacts." + to, contactsRaw);
   try {
     const fh = await idbGet("file." + PROJECT);
     if (fh) await idbSet("file." + to, fh);
@@ -3029,6 +3105,7 @@ document.getElementById("p_rename").onclick = async () => {
   // clean up old keys
   localStorage.removeItem("keepInTouch.project." + PROJECT);
   localStorage.removeItem("keepInTouch.sheet." + PROJECT);
+  localStorage.removeItem("keepInTouch.contacts." + PROJECT);
   unregisterProject(PROJECT);
   registerProject(to);
   gotoProject(to);

@@ -2,6 +2,16 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.35.0 — 2026-06-07
+
+- **One-tap reach-out** (roadmap #1) — add a phone and/or email to anyone in the edit
+  screen, and their cards gain one-tap **📞 Call · 💬 Text · ✉️ Email** chips (native
+  `tel:`/`sms:`/`mailto:` links). Closes the loop from "you're due to reach out" straight
+  to reaching out. Contact details are saved **on this device only** (clearly labelled),
+  kept entirely separate from the synced data so they can never disturb cross-device sync;
+  when you later connect a Sheet with contact columns they can upgrade to synced. Carried
+  across project rename. Malicious values are escaped (no injection via a crafted email).
+
 ## v1.34.0 — 2026-06-07
 
 - **Garden 🌱 view** (roadmap #12) — a new opt-in mode tab that shows each active person

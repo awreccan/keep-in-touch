@@ -1,6 +1,6 @@
 /* Keep In Touch — service worker (app-shell cache only; never caches user data).
    CACHE is stamped from VERSION at release time. */
-const CACHE = "kit-shell-1.34.0";
+const CACHE = "kit-shell-1.35.0";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest",
   "./assets/icon-192.png", "./assets/icon-512.png", "./assets/icon.svg"];
 
