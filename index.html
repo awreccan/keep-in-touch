@@ -199,6 +199,34 @@
     font-size: 0.75rem; font-weight: 700;
   }
   .grid-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Garden decay view (roadmap #12): affective tiles, freshness = plant health.
+     Calm, not cartoonish — soft tinted surfaces matching the app's status palette. */
+  body.garden-mode .wrap { max-width: 1200px; }
+  ul.list.garden {
+    display: grid; gap: 0.6rem; list-style: none; padding: 0;
+    grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  }
+  li.garden-tile {
+    display: flex; flex-direction: column; align-items: center; gap: 0.25rem;
+    padding: 0.9rem 0.6rem; border-radius: var(--radius); cursor: pointer;
+    background: var(--surface-2); border: 1px solid transparent; text-align: center;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  li.garden-tile:hover { transform: translateY(-2px); box-shadow: 0 3px 10px rgba(0,0,0,0.12); }
+  li.garden-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .garden-glyph { font-size: 2rem; line-height: 1; }
+  .garden-name { font-weight: 600; font-size: 0.9rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .garden-state { font-size: 0.72rem; color: var(--text-dim); }
+  /* Bands tint toward the existing status colors; intensity rises with decay. */
+  li.garden-tile.g-thriving { background: color-mix(in srgb, var(--on-track) 16%, var(--surface)); border-color: color-mix(in srgb, var(--on-track) 35%, transparent); }
+  li.garden-tile.g-healthy  { background: color-mix(in srgb, var(--on-track) 9%, var(--surface)); }
+  li.garden-tile.g-due-soon { background: color-mix(in srgb, var(--due-soon) 14%, var(--surface)); border-color: color-mix(in srgb, var(--due-soon) 30%, transparent); }
+  li.garden-tile.g-wilting  { background: color-mix(in srgb, var(--overdue) 14%, var(--surface)); border-color: color-mix(in srgb, var(--overdue) 30%, transparent); }
+  li.garden-tile.g-parched  { background: color-mix(in srgb, var(--overdue) 26%, var(--surface)); border-color: color-mix(in srgb, var(--overdue) 55%, transparent); }
+  li.garden-tile.g-seed     { background: var(--surface-2); opacity: 0.7; }
+  @media (prefers-reduced-motion: reduce) { li.garden-tile { transition: none; } li.garden-tile:hover { transform: none; } }
+
   li.card {
     background: var(--surface); border: 1px solid var(--border); border-left-width: 3px;
     border-radius: var(--radius); padding: 0.85rem; margin-bottom: 0.65rem;
@@ -452,6 +480,7 @@
     <button class="mode-btn active" data-mode="auto">Auto · due / overdue</button>
     <button class="mode-btn" data-mode="manual">My ranking</button>
     <button class="mode-btn" data-mode="grid">Grid rank</button>
+    <button class="mode-btn" data-mode="garden">Garden 🌱</button>
     <button class="mode-btn" data-mode="batch">Batch set</button>
   </div>
  </div>
@@ -684,10 +713,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.33.0";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.34.0";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.33.0: roadmap feature — shareable monthly recap ("This month ✨") built client-side from history)
+   Keep In Touch — renderer (v1.34.0: roadmap feature — Garden 🌱 decay view: affective tiles whose plant health = freshness ratio)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -1693,6 +1722,23 @@ function statusOf(item) {
   return { cls: "on-track", label: `In ${d}d`, order: d };
 }
 
+/* ---------- garden decay view (roadmap v2 #12) ----------
+   Presentation-only affective overview. Freshness = elapsed/cadence since last met:
+   0 = just met (thriving), 1.0 = exactly due, >1 = overdue (wilting). Pure function
+   of the same nextDue/daysUntilDue math the list uses — no schema, no new data. */
+function gardenFreshness(item) {
+  const lm = lastMet(item);
+  if (!lm) return { band: "seed", glyph: "🌰", ratio: null, label: "not yet planted" };
+  const elapsed = daysBetween(parseISO(lm), parseISO(todayISO()));
+  const cadence = Math.max(1, item.cadenceDays);
+  const ratio = elapsed / cadence;   // 0 just-met … 1 due … >1 overdue
+  if (ratio <= 0.5)  return { band: "thriving", glyph: "🌳", ratio, label: "thriving" };
+  if (ratio <= 0.85) return { band: "healthy",  glyph: "🌿", ratio, label: "healthy" };
+  if (ratio <= 1.0)  return { band: "due-soon", glyph: "🌼", ratio, label: "needs water soon" };
+  if (ratio <= 1.5)  return { band: "wilting",  glyph: "🍂", ratio, label: "wilting" };
+  return { band: "parched", glyph: "🥀", ratio, label: "parched" };
+}
+
 /* ---------- reconnection wins (roadmap v2 #3) ----------
    Positive, growth-framed: celebrate reconnecting with someone you'd drifted
    from. NEVER a streak that resets to zero or any "you lapsed" shaming — the
@@ -1941,6 +1987,10 @@ function sortedForMode() {
   if (healthFilter && !showArchived) items = items.filter(i => statusBand(i) === healthFilter);
   if (state.mode === "auto") {
     items.sort((a, b) => statusOf(a).order - statusOf(b).order);
+  } else if (state.mode === "garden") {
+    // Most-wilting first (highest freshness ratio); never-met sink to the end as "seeds".
+    const r = i => { const v = gardenFreshness(i).ratio; return v == null ? -1 : v; };
+    items.sort((a, b) => r(b) - r(a));
   } else {
     const idx = id => { const i = state.manualOrder.indexOf(id); return i === -1 ? 1e9 : i; };
     items.sort((a, b) => idx(a.id) - idx(b.id));
@@ -1964,8 +2014,12 @@ function render() {
   list.innerHTML = "";
   // Grid is a ranking surface — force it off in the archived view (which is non-draggable).
   const grid = state.mode === "grid" && !showArchived;
+  // Garden is a presentation-only affective view, also active-only.
+  const garden = state.mode === "garden" && !showArchived;
   list.classList.toggle("grid", grid);
+  list.classList.toggle("garden", garden);
   document.body.classList.toggle("grid-mode", grid);
+  document.body.classList.toggle("garden-mode", garden);
   document.body.classList.toggle("archived-view", showArchived);
   const items = sortedForMode();
   empty.style.display = items.length ? "none" : "block";
@@ -1998,7 +2052,18 @@ function render() {
     const pill = snoozed
       ? `<span class="pill snoozed">💤 ${escapeHtml(item.snoozedUntil)}</span>`
       : `<span class="pill ${st.cls}">${st.label}</span>`;
-    if (grid) {
+    if (garden) {
+      // Affective tile: a plant whose health = freshness ratio. Tapping opens the
+      // same person actions (delegated via data-act="garden-open" on the tile).
+      const g = gardenFreshness(item);
+      li.className = `garden-tile g-${g.band}`;
+      li.dataset.act = "garden-open";
+      li.title = `${item.name} — ${g.label}${lm ? " · last met " + humanizeRelative(lm) : ""}`;
+      li.innerHTML = `
+        <span class="garden-glyph" aria-hidden="true">${g.glyph}</span>
+        <span class="garden-name">${escapeHtml(item.name)}</span>
+        <span class="garden-state">${g.label}</span>`;
+    } else if (grid) {
       // dense card: rank number + name + status + key facts, no action buttons
       li.innerHTML = `
         ${draggable ? '<span class="handle" title="Drag to reorder">⠿</span>' : ''}
@@ -2059,7 +2124,7 @@ function render() {
 function renderOnThisDay() {
   const el = document.getElementById("onThisDay");
   if (!el) return;
-  if (showArchived || state.mode === "batch" || onThisDayDismissed()) { el.hidden = true; el.innerHTML = ""; return; }
+  if (showArchived || state.mode === "batch" || state.mode === "garden" || onThisDayDismissed()) { el.hidden = true; el.innerHTML = ""; return; }
   const m = onThisDayMemory();
   if (!m) { el.hidden = true; el.innerHTML = ""; return; }
   const yrs = m.years === 1 ? "1 year ago today" : `${m.years} years ago today`;
@@ -2080,7 +2145,7 @@ function renderHealthStrip() {
   const strip = document.getElementById("healthStrip");
   if (!strip) return;
   const tracked = trackedItems();
-  if (showArchived || state.mode === "batch" || tracked.length < 2) {
+  if (showArchived || state.mode === "batch" || state.mode === "garden" || tracked.length < 2) {
     strip.hidden = true; strip.innerHTML = ""; return;
   }
   const ORDER = [
@@ -2412,11 +2477,15 @@ document.getElementById("onThisDay").addEventListener("click", e => {
 document.getElementById("list").addEventListener("click", e => {
   const btn = e.target.closest("[data-act]");
   if (!btn) return;
-  const id = e.target.closest(".card").dataset.id;
+  // id lives on the .card (list/grid) OR the .garden-tile (garden mode) — the
+  // data-act element IS the tile in garden mode, so read from whichever carries the id.
+  const host = e.target.closest(".card, .garden-tile");
+  const id = host && host.dataset.id;
+  if (!id) return;
   const act = btn.dataset.act;
   if (act === "met") logMeeting(id, todayISO());
   else if (act === "hist") openHistory(id);
-  else if (act === "edit") openEdit(id);
+  else if (act === "edit" || act === "garden-open") openEdit(id);
   else if (act === "archive") { if (state.items[id].archived) restoreItem(id); else archiveItem(id); }
   else if (act === "snooze") openSnooze(id);
   else if (act === "unsnooze") unsnooze(id);

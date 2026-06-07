@@ -2,6 +2,15 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.34.0 — 2026-06-07
+
+- **Garden 🌱 view** (roadmap #12) — a new opt-in mode tab that shows each active person
+  as a plant tile whose health is a pure function of how overdue they are: 🌳 thriving →
+  🌿 healthy → 🌼 needs-water-soon → 🍂 wilting → 🥀 parched, with never-met people as 🌰
+  seeds. Tiles sort most-wilting-first and tapping one opens that person's actions. A calm,
+  glanceable overview that makes opening the app a small delight rather than a chore.
+  Presentation-only — no new data, no backend, respects `prefers-reduced-motion`.
+
 ## v1.33.0 — 2026-06-06
 ### Added
 - **"This month ✨" recap.** A new toolbar button shows a private monthly snapshot built entirely from your meeting log — meetings logged, people seen, reconnections, your longest-awaited catch-up, and who you've been most consistent with — with a one-tap "Copy summary" to share if you want. Nothing leaves your device unless you copy it. A quiet, encouraging month gets a "fresh page" nudge rather than an empty stat sheet — never any guilt framing.
