@@ -11,6 +11,20 @@ This is the only part I can't do for you: it runs under **your** Google account.
 > already works without this — it's **only** the email digest that needs the redeploy.
 > Your Sheet, your data, and the Web-app URL are all unchanged by this.
 
+**Fastest path — one command (clasp):** if you have the Apps Script **Script ID**
+(script editor → ⚙ Project Settings → "Script ID"), just run:
+
+```bash
+bash backend/deploy-via-clasp.sh <SCRIPT_ID>
+```
+
+It pushes the current `Code.gs` and updates your existing web-app deployment **in place**
+(same `/exec` URL). `clasp` is already installed + authenticated on this machine. The
+`.clasp.json` it writes (holding your Script ID) is gitignored — it never leaves your disk.
+Then do step 4 below once (the email trigger). — *Prefer this; the 4-click flow is the manual fallback.*
+
+**Manual fallback (4 clicks):**
+
 1. Open your Sheet → **Extensions → Apps Script**.
 2. Select-all in the editor, delete, and paste the entire current `Code.gs` (next to this file).
 3. **Deploy → Manage deployments → ✏️ (edit) → Version: *New version* → Deploy.** (URL stays the same.)
