@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Keep In Touch — what it is</title>
+<style>
+  /* ---- tokens: light by default, dark via system preference ---- */
+  :root {
+    --brand: #2f6df0;
+    --brand-ink: #1b4fc4;
+    --bg: #f7f6f4;
+    --surface: #ffffff;
+    --surface-2: #f0eee9;
+    --text: #1d1c1a;
+    --text-dim: #6b6862;
+    --line: #e4e1da;
+    --ok: #2e9e6b;
+    --warn: #d98a1f;
+    --over: #d2503f;
+    --radius: 14px;
+    --maxw: 880px;
+    --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 30px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --brand: #5b8dff; --brand-ink: #8fb0ff;
+      --bg: #14151a; --surface: #1c1e25; --surface-2: #23262f;
+      --text: #ecebe8; --text-dim: #9a988f; --line: #2c2f38;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 40px rgba(0,0,0,.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 1.25rem; }
+  a { color: var(--brand-ink); }
+
+  /* ---- hero ---- */
+  header.hero {
+    background:
+      radial-gradient(1200px 400px at 80% -10%, color-mix(in srgb, var(--brand) 22%, transparent), transparent),
+      linear-gradient(180deg, var(--surface), var(--bg));
+    border-bottom: 1px solid var(--line);
+    padding: 4rem 0 3rem;
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: .4rem;
+    font-size: .8rem; font-weight: 600; color: var(--brand-ink);
+    background: color-mix(in srgb, var(--brand) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--brand) 30%, transparent);
+    padding: .25rem .7rem; border-radius: 999px; letter-spacing: .01em;
+  }
+  h1 { font-size: clamp(2.2rem, 6vw, 3.4rem); line-height: 1.05; margin: 1rem 0 .5rem; letter-spacing: -.02em; }
+  h1 .leaf { -webkit-text-fill-color: initial; }
+  .tagline { font-size: clamp(1.05rem, 2.5vw, 1.3rem); color: var(--text-dim); max-width: 38ch; margin: 0 0 1.6rem; }
+  .cta { display: flex; gap: .7rem; flex-wrap: wrap; align-items: center; }
+  .btn {
+    display: inline-flex; align-items: center; gap: .5rem; text-decoration: none;
+    font-weight: 600; padding: .7rem 1.2rem; border-radius: 11px; border: 1px solid transparent;
+    transition: transform .08s ease, box-shadow .15s ease;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary { background: var(--brand); color: #fff; box-shadow: var(--shadow); }
+  .btn.ghost { background: var(--surface); color: var(--text); border-color: var(--line); }
+
+  /* ---- sections ---- */
+  section { padding: 3rem 0; border-bottom: 1px solid var(--line); }
+  h2 { font-size: 1.5rem; letter-spacing: -.01em; margin: 0 0 1.4rem; }
+  h2 .num { color: var(--brand); font-variant-numeric: tabular-nums; }
+  .lead { color: var(--text-dim); max-width: 60ch; margin: -.6rem 0 1.6rem; }
+
+  /* mock card row in hero */
+  .demo { margin-top: 2.4rem; display: grid; gap: .6rem; }
+  .pcard {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: .8rem 1rem; display: flex; align-items: center; gap: .8rem; box-shadow: var(--shadow);
+  }
+  .pcard .who { font-weight: 600; }
+  .pcard .meta { color: var(--text-dim); font-size: .85rem; }
+  .pill { margin-left: auto; font-size: .78rem; font-weight: 600; padding: .2rem .6rem; border-radius: 999px; white-space: nowrap; }
+  .pill.over { color: #fff; background: var(--over); }
+  .pill.soon { color: #5a3c08; background: color-mix(in srgb, var(--warn) 35%, var(--surface)); }
+  .pill.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 16%, var(--surface)); }
+  .chips { display: flex; gap: .35rem; margin-left: .2rem; }
+  .chip { font-size: .8rem; padding: .12rem .5rem; border: 1px solid var(--line); border-radius: 999px; color: var(--text-dim); }
+
+  /* feature grid */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(255px, 1fr)); gap: .9rem; }
+  .feat {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 1rem 1.1rem; transition: border-color .15s ease, transform .08s ease;
+  }
+  .feat:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--line)); transform: translateY(-1px); }
+  .feat .ico { font-size: 1.4rem; }
+  .feat h3 { margin: .4rem 0 .25rem; font-size: 1rem; }
+  .feat p { margin: 0; color: var(--text-dim); font-size: .9rem; }
+
+  /* architecture */
+  .arch { display: grid; gap: .8rem; }
+  .layer {
+    display: grid; grid-template-columns: auto 1fr; gap: .9rem; align-items: start;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem 1.1rem;
+  }
+  .layer .rank { font-weight: 700; color: var(--brand); font-variant-numeric: tabular-nums; }
+  .layer b { display: block; }
+  .layer span { color: var(--text-dim); font-size: .9rem; }
+  .note { font-size: .88rem; color: var(--text-dim); background: var(--surface-2); border-radius: 11px; padding: .8rem 1rem; margin-top: 1rem; }
+
+  /* docs table */
+  table.docs { width: 100%; border-collapse: collapse; }
+  table.docs td { padding: .7rem .6rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.docs td:first-child { white-space: nowrap; font-weight: 600; }
+  table.docs code { background: var(--surface-2); padding: .1rem .4rem; border-radius: 6px; font-size: .85em; }
+
+  footer { padding: 2.5rem 0 3.5rem; color: var(--text-dim); font-size: .9rem; }
+  .stat-row { display: flex; gap: 1.6rem; flex-wrap: wrap; margin-top: 1.2rem; }
+  .stat { }
+  .stat b { font-size: 1.5rem; color: var(--text); display: block; line-height: 1.1; }
+  .stat span { font-size: .82rem; color: var(--text-dim); }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="badge">● Live · v1.41.1</span>
+    <h1>Keep In Touch <span class="leaf">🌱</span></h1>
+    <p class="tagline">A gentle tracker for the people you care about. Set a rhythm, log when you connect, and never quietly drift apart.</p>
+    <div class="cta">
+      <a class="btn primary" href="https://awreccan.github.io/keep-in-touch/">Open the app →</a>
+      <a class="btn ghost" href="HOWTO.md">How to use it</a>
+      <a class="btn ghost" href="CHANGELOG.md">Changelog</a>
+    </div>
+
+    <div class="demo" aria-hidden="true">
+      <div class="pcard">
+        <span>🌳</span>
+        <div><div class="who">Alex Rivera</div><div class="meta">every 30d · last met 51 days ago</div></div>
+        <span class="pill over">Overdue 21d</span>
+      </div>
+      <div class="pcard">
+        <span>🌿</span>
+        <div><div class="who">Sam Patel</div><div class="meta">every 14d · ☕ last met 11 days ago</div></div>
+        <span class="pill soon">Due in 3d</span>
+      </div>
+      <div class="pcard">
+        <span>🌱</span>
+        <div><div class="who">Jordan Lee</div><div class="meta">every 60d · 🎂 birthday in 5d</div></div>
+        <span class="pill ok">In 24d</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2>The idea</h2>
+    <p class="lead">Relationships fade not from a decision, but from inattention. Keep In Touch answers one question, continuously and without guilt: <em>who have I been neglecting?</em> — then makes reaching out a single tap.</p>
+    <div class="stat-row">
+      <div class="stat"><b>13</b><span>features shipped</span></div>
+      <div class="stat"><b>0</b><span>known bugs (10 audit rounds)</span></div>
+      <div class="stat"><b>111</b><span>automated tests passing</span></div>
+      <div class="stat"><b>1</b><span>HTML file · no build · offline</span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Four ways to see your people</h2>
+    <div class="grid">
+      <div class="feat"><div class="ico">⏰</div><h3>Auto · due / overdue</h3><p>Auto-ranks by urgency — never-met, then most overdue, then soonest due.</p></div>
+      <div class="feat"><div class="ico">✋</div><h3>My ranking</h3><p>Drag rows into your own preference order. Touch-friendly, stored separately.</p></div>
+      <div class="feat"><div class="ico">🔲</div><h3>Grid rank</h3><p>Dense multi-column cards so a long list fits on one screen.</p></div>
+      <div class="feat"><div class="ico">🌱</div><h3>Garden</h3><p>Each person is a plant whose health shows how overdue they are — thriving to wilting.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Everything it does</h2>
+    <p class="lead">Beyond the foundation (cadences, due math, drag-ranking, permanent meeting history, add / edit / archive, light &amp; dark, offline) — these are the touches that make it feel alive:</p>
+    <div class="grid">
+      <div class="feat"><div class="ico">📱</div><h3>One-tap reach-out</h3><p>Call / text / email chips right on the card — due to done in one tap.</p></div>
+      <div class="feat"><div class="ico">🫧</div><h3>Smart drift nudge</h3><p>"You usually see Alex ~every 30d — it's been 50."</p></div>
+      <div class="feat"><div class="ico">🎉</div><h3>Reconnection wins</h3><p>Celebrates a comeback. Never shames a lapse.</p></div>
+      <div class="feat"><div class="ico">📊</div><h3>Health glance</h3><p>A calm status strip you can tap to filter who's overdue.</p></div>
+      <div class="feat"><div class="ico">💬</div><h3>Talking points</h3><p>A "pick up next time" note per person.</p></div>
+      <div class="feat"><div class="ico">🎂</div><h3>Key dates</h3><p>Birthday &amp; anniversary countdown chips.</p></div>
+      <div class="feat"><div class="ico">⏭️</div><h3>Reschedule</h3><p>Push someone's next nudge out — without logging a meeting or hiding them.</p></div>
+      <div class="feat"><div class="ico">🤝</div><h3>Channel tags</h3><p>Mark each meeting: call, coffee, text, video, in person.</p></div>
+      <div class="feat"><div class="ico">💛</div><h3>Relationship tiers</h3><p>Inner / Close / Orbit circles that preset a sensible cadence.</p></div>
+      <div class="feat"><div class="ico">📅</div><h3>On this day</h3><p>Resurfaces a meeting from a year ago today.</p></div>
+      <div class="feat"><div class="ico">✨</div><h3>Monthly recap</h3><p>A private, shareable "this month in connection."</p></div>
+      <div class="feat"><div class="ico">📧</div><h3>Daily email digest</h3><p>An optional morning email of who's due, via the Sheet backend.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>How it works</h2>
+    <p class="lead">Keep In Touch is a <strong>renderer, not a data owner.</strong> It holds no shared bucket of your data — your data lives in <em>your</em> storage, and the app just renders and writes it back.</p>
+    <div class="arch">
+      <div class="layer"><span class="rank">1</span><div><b>Google Sheet (recommended)</b><span>The Sheet <em>is</em> your database — open it, click a cell, it autosaves. The app reads/writes it as JSON via a tiny Apps Script. One Sheet = many projects. This is what syncs phone ↔ computer.</span></div></div>
+      <div class="layer"><span class="rank">2</span><div><b>Connected local file (desktop)</b><span>Bind to a <code>.json</code> you choose; edits write straight to disk and auto-reconnect next launch.</span></div></div>
+      <div class="layer"><span class="rank">3</span><div><b>Browser storage (fallback / offline)</b><span>Namespaced per project; doubles as the offline cache.</span></div></div>
+    </div>
+    <p class="note">🔒 <strong>Private by design.</strong> The hosted URL (<code>awreccan.github.io/keep-in-touch</code>) is <em>code only</em> — it contains no data. Your contacts never leave your Google account or device. Updating the app never loses your data: it's keyed by project, not by the HTML. Isolate lists with <code>?project=family</code>, <code>?project=work</code>, etc. Installable as a PWA on Android &amp; macOS.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Read more</h2>
+    <table class="docs">
+      <tr><td><a href="HOWTO.md">HOWTO.md</a></td><td>Day-to-day usage, projects, where your data lives</td></tr>
+      <tr><td><a href="PLAN.md">PLAN.md</a></td><td>The original vision and feature design</td></tr>
+      <tr><td><a href="CHANGELOG.md">CHANGELOG.md</a></td><td>Every version and what shipped — the fullest build narrative</td></tr>
+      <tr><td><a href="backend/DEPLOY.md">backend/DEPLOY.md</a></td><td>Set up or redeploy the Google Sheet + Apps Script backend</td></tr>
+      <tr><td><a href="README.md">README.md</a></td><td>This page, in Markdown</td></tr>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Keep In Touch — vanilla HTML/CSS/JS · PWA · Google Apps Script backend · GitHub Pages.
+    No framework, no build, no tracking. 🌱
+  </div>
+</footer>
+
+</body>
+</html>
