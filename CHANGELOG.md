@@ -2,6 +2,16 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.41.1 — 2026-06-07
+
+**Backend manifest fix (email F9).** Running `installDailyReminder` failed with
+"Specified permissions are not sufficient to call ScriptApp.getProjectTriggers" — the
+deployed `appsscript.json` declared only `spreadsheets.currentonly` + `script.send_mail`,
+but trigger management needs `script.scriptapp`. Added that scope (plus `userinfo.email`
+for the default-recipient lookup) and redeployed. Re-running `installDailyReminder` in the
+editor now prompts for the trigger/email permissions and arms the daily digest.
+`appsscript.json` is now tracked in the repo (it's the deployable manifest, no secrets).
+
 ## v1.41.0 — 2026-06-07
 
 **Backend deployed → full roadmap complete (13/13).** The Apps Script backend was upgraded

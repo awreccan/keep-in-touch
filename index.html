@@ -810,10 +810,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.41.0";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.41.1";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.41.0: backend deployed (14-col) — #7 reschedule-from-today + #8 channel tag now SYNCED; full 13/13 roadmap)
+   Keep In Touch — renderer (v1.41.1: backend manifest fix — add script.scriptapp scope so installDailyReminder (email F9) can create its trigger)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
