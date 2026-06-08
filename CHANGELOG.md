@@ -2,6 +2,14 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.37.0 — 2026-06-07
+
+- **🎂 Key dates (roadmap #6).** Add a birthday and/or anniversary per person; cards show a
+  countdown chip ("🎂 birthday in 5d") when one is within 30 days, with recurring month-day math
+  (year-rollover and Feb-29 safe). Stored device-locally (separate `keepInTouch.keydates.<project>`
+  map, kept out of the Sheet sync — zero sync risk); upgrades to synced when the backend gains the
+  key-dates column. Invalid dates are rejected on save. 89/89 tests.
+
 ## v1.36.0 — 2026-06-07
 
 - **Talking points** (roadmap #5) — a single freeform "pick up next time" note per person

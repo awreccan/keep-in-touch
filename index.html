@@ -303,6 +303,15 @@
   @media (pointer: coarse) { .chip { min-height: 44px; display: inline-flex; align-items: center; } }
   /* Contact-info device-local hint in the edit modal. */
   .fld-hint { font-size: 0.75rem; color: var(--text-dim); margin: 0.1rem 0 0; }
+  .fld-row { display: flex; gap: 0.6rem; }
+  .fld-row .fld { flex: 1; min-width: 0; }
+  /* #6 key-date countdown chips on the card */
+  .keydate-row { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.4rem; }
+  .keydate-chip {
+    font-size: 0.78rem; padding: 0.15rem 0.5rem; border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+    color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  }
   /* Talking-points thread note on a card (roadmap #5). */
   .thread-note {
     margin-top: 0.55rem; padding: 0.4rem 0.6rem; border-radius: var(--radius-sm);
@@ -571,6 +580,15 @@
     <label class="fld">Pick up next time (optional)
       <textarea id="f_thread" rows="2" placeholder="e.g. ask how the move went; their kid started school" autocomplete="off"></textarea>
     </label>
+    <div class="fld-row">
+      <label class="fld">🎂 Birthday (optional)
+        <input type="date" id="f_birthday">
+      </label>
+      <label class="fld">💍 Anniversary (optional)
+        <input type="date" id="f_anniversary">
+      </label>
+    </div>
+    <p class="fld-hint">🎂 Saved on this device only (until you connect a Sheet with key-date columns). Reminders appear up to 30 days ahead.</p>
     <div class="modal-actions">
       <button class="btn" id="editCancel">Cancel</button>
       <button class="btn primary" id="editSave">Save</button>
@@ -746,10 +764,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.36.0";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.37.0";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.36.0: roadmap #5 — talking points: one freeform "pick up next time" note per person, device-local & sync-safe)
+   Keep In Touch — renderer (v1.37.0: roadmap #6 — key dates: 🎂 birthday/anniversary countdown chips, device-local & sync-safe)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -954,6 +972,52 @@ function setThread(id, text) {
   const t = (text || "").trim();
   if (!t) delete m[id]; else m[id] = t;
   try { localStorage.setItem(threadsKey(), JSON.stringify(m)); } catch (err) { console.warn("threads save failed", err); }
+}
+
+// ---- #6 key dates (birthday / anniversary), device-local + sync-safe (same pattern as
+// threads/contacts: separate localStorage map, OUTSIDE state, never touched by Sheet sync).
+// Upgrades to synced when the backend gains the keyDates column (already staged in Code.gs).
+function keyDatesKey() { return "keepInTouch.keydates." + PROJECT; }
+function loadKeyDates() {
+  try { const m = JSON.parse(localStorage.getItem(keyDatesKey()) || "{}"); return (m && typeof m === "object") ? m : {}; }
+  catch (e) { return {}; }
+}
+function keyDatesFor(id) { return loadKeyDates()[id] || {}; }
+function setKeyDates(id, birthday, anniversary) {
+  const m = loadKeyDates();
+  const o = {};
+  if (isRealDate(birthday)) o.birthday = birthday;
+  if (isRealDate(anniversary)) o.anniversary = anniversary;
+  if (Object.keys(o).length) m[id] = o; else delete m[id];
+  try { localStorage.setItem(keyDatesKey(), JSON.stringify(m)); } catch (err) { console.warn("keydates save failed", err); }
+}
+// Days until the NEXT recurrence of a YYYY-MM-DD anniversary (month-day; year ignored).
+// Year-rollover safe; a Feb-29 date falls back to Mar-1 in common years. 0 = today.
+function daysUntilRecurring(isoDate) {
+  if (!isRealDate(isoDate)) return null;
+  const [, mm, dd] = isoDate.split("-").map(Number);
+  const now = parseISO(todayISO());
+  const y = now.getFullYear();
+  const mk = (yr) => { const d = new Date(yr, mm - 1, dd); if (d.getMonth() !== mm - 1) d.setDate(0); /* Feb29→Feb28; bump to Mar1 below */ return d; };
+  let next = new Date(y, mm - 1, dd);
+  if (next.getMonth() !== mm - 1) next = new Date(y, mm, 1);   // Feb-29 in a common year → Mar-1
+  if (next < now) { next = new Date(y + 1, mm - 1, dd); if (next.getMonth() !== mm - 1) next = new Date(y + 1, mm, 1); }
+  return Math.round((next - now) / 86400000);
+}
+// A 🎂 countdown chip if any key date is within KEYDATE_HORIZON days. Escaped; "" when none.
+const KEYDATE_HORIZON = 30;
+function keyDateChip(id) {
+  const kd = keyDatesFor(id);
+  const out = [];
+  const fmt = (label, iso, emoji) => {
+    const d = daysUntilRecurring(iso);
+    if (d == null || d > KEYDATE_HORIZON) return;
+    const when = d === 0 ? "today!" : d === 1 ? "tomorrow" : `in ${d}d`;
+    out.push(`<span class="keydate-chip">${emoji} ${label} ${when}</span>`);
+  };
+  fmt("birthday", kd.birthday, "🎂");
+  fmt("anniversary", kd.anniversary, "💍");
+  return out.length ? `<div class="keydate-row">${out.join("")}</div>` : "";
 }
 // One-tap reach-out chips for a card. Real <a href> links (native tel/sms/mailto) so
 // they work on mobile without JS. Returns "" when the person has no saved contact info.
@@ -2191,6 +2255,7 @@ function render() {
             🫶 You usually see ${escapeHtml(item.name)} ~every ${drift.observed}d — it's been ${drift.sinceLast}d. Time for a catch-up?
             </div>` : "")}
           ${threadFor(item.id) ? `<div class="thread-note" title="Pick up next time">💬 ${escapeHtml(threadFor(item.id))}</div>` : ""}
+          ${keyDateChip(item.id)}
           ${reachOutChips(item.id)}
           <div class="card-actions">
             ${(item.archived || snoozed) ? "" : '<button class="mini accent" data-act="met">✔ Met today</button>'}
@@ -2768,6 +2833,9 @@ function openEdit(id) {
   document.getElementById("f_phone").value = c.phone || "";
   document.getElementById("f_email").value = c.email || "";
   document.getElementById("f_thread").value = id ? threadFor(id) : "";
+  const kd = id ? keyDatesFor(id) : {};
+  document.getElementById("f_birthday").value = kd.birthday || "";
+  document.getElementById("f_anniversary").value = kd.anniversary || "";
   openModal("editModal");
   document.getElementById("f_name").focus();
 }
@@ -2803,6 +2871,7 @@ document.getElementById("editSave").onclick = () => {
   // (no Sheet-sync involvement).
   setContact(contactId, phone, email);
   setThread(contactId, document.getElementById("f_thread").value);
+  setKeyDates(contactId, document.getElementById("f_birthday").value, document.getElementById("f_anniversary").value);
   save(); render(); closeModal("editModal");
 };
 
@@ -3134,6 +3203,8 @@ document.getElementById("p_rename").onclick = async () => {
   if (contactsRaw) localStorage.setItem("keepInTouch.contacts." + to, contactsRaw);
   const threadsRaw = localStorage.getItem("keepInTouch.threads." + PROJECT);
   if (threadsRaw) localStorage.setItem("keepInTouch.threads." + to, threadsRaw);
+  const keydatesRaw = localStorage.getItem("keepInTouch.keydates." + PROJECT);
+  if (keydatesRaw) localStorage.setItem("keepInTouch.keydates." + to, keydatesRaw);
   try {
     const fh = await idbGet("file." + PROJECT);
     if (fh) await idbSet("file." + to, fh);
@@ -3143,6 +3214,7 @@ document.getElementById("p_rename").onclick = async () => {
   localStorage.removeItem("keepInTouch.sheet." + PROJECT);
   localStorage.removeItem("keepInTouch.contacts." + PROJECT);
   localStorage.removeItem("keepInTouch.threads." + PROJECT);
+  localStorage.removeItem("keepInTouch.keydates." + PROJECT);
   unregisterProject(PROJECT);
   registerProject(to);
   gotoProject(to);
