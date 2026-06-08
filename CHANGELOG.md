@@ -2,6 +2,14 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.38.0 — 2026-06-07
+
+- **Relationship circles / tiers (roadmap #9).** Tag people Inner 💛 / Close 🧡 / Orbit 🔵; the
+  card shows a small tier badge, and picking a circle suggests its cadence (14 / 45 / 120 days) into
+  the cadence field — so the cadence effect syncs everywhere (it writes the normal `cadenceDays`),
+  while the tier label rides device-locally (`keepInTouch.tiers.<project>`, out of the Sheet sync;
+  upgrades to synced when the backend gains the tier column). 94/94 tests.
+
 ## v1.37.0 — 2026-06-07
 
 - **🎂 Key dates (roadmap #6).** Add a birthday and/or anniversary per person; cards show a

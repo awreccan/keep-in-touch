@@ -312,6 +312,8 @@
     background: color-mix(in srgb, var(--accent) 12%, var(--surface));
     color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
   }
+  /* #9 tier badge in the card title */
+  .tier-badge { font-size: 0.72rem; padding: 0.1rem 0.45rem; border-radius: 999px; background: var(--surface-2); color: var(--text-dim); font-weight: 600; }
   /* Talking-points thread note on a card (roadmap #5). */
   .thread-note {
     margin-top: 0.55rem; padding: 0.4rem 0.6rem; border-radius: var(--radius-sm);
@@ -554,6 +556,14 @@
     <label class="fld">Name
       <input type="text" id="f_name" placeholder="e.g. Alex Rivera" autocomplete="off">
     </label>
+    <label class="fld">Circle (optional — sets a suggested cadence)
+      <select id="f_tier">
+        <option value="">— none —</option>
+        <option value="inner">💛 Inner (~every 2 weeks)</option>
+        <option value="close">🧡 Close (~every 6 weeks)</option>
+        <option value="orbit">🔵 Orbit (~every 4 months)</option>
+      </select>
+    </label>
     <div class="row2">
       <label class="fld">Meet every
         <select id="f_cadence_preset"></select>
@@ -764,10 +774,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.37.0";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.38.0";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.37.0: roadmap #6 — key dates: 🎂 birthday/anniversary countdown chips, device-local & sync-safe)
+   Keep In Touch — renderer (v1.38.0: roadmap #9 — relationship tiers (Inner/Close/Orbit): device-local label + synced cadence preset)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -1005,6 +1015,32 @@ function daysUntilRecurring(isoDate) {
   return Math.round((next - now) / 86400000);
 }
 // A 🎂 countdown chip if any key date is within KEYDATE_HORIZON days. Escaped; "" when none.
+// ---- #9 relationship tiers. The tier LABEL is device-local (a grouping nicety); choosing
+// a tier applies a preset to the SYNCED cadenceDays, so the cadence effect syncs across
+// devices while the label rides locally (upgrades to synced when the backend gains the
+// tier column). Keeps due-math consistent everywhere (cadenceDays is the single source).
+const TIERS = [
+  { key: "inner",  label: "Inner",  emoji: "💛", cadence: 14 },
+  { key: "close",  label: "Close",  emoji: "🧡", cadence: 45 },
+  { key: "orbit",  label: "Orbit",  emoji: "🔵", cadence: 120 },
+];
+function tiersKey() { return "keepInTouch.tiers." + PROJECT; }
+function loadTiers() {
+  try { const m = JSON.parse(localStorage.getItem(tiersKey()) || "{}"); return (m && typeof m === "object") ? m : {}; }
+  catch (e) { return {}; }
+}
+function tierFor(id) { return loadTiers()[id] || ""; }
+function setTier(id, tierKey) {
+  const m = loadTiers();
+  if (TIERS.some(t => t.key === tierKey)) m[id] = tierKey; else delete m[id];
+  try { localStorage.setItem(tiersKey(), JSON.stringify(m)); } catch (err) { console.warn("tiers save failed", err); }
+}
+function tierBadge(id) {
+  const tk = tierFor(id); if (!tk) return "";
+  const t = TIERS.find(x => x.key === tk); if (!t) return "";
+  return `<span class="tier-badge tier-${t.key}" title="${t.label} circle">${t.emoji} ${t.label}</span>`;
+}
+
 const KEYDATE_HORIZON = 30;
 function keyDateChip(id) {
   const kd = keyDatesFor(id);
@@ -2240,6 +2276,7 @@ function render() {
           <div class="card-title">
             <span>${escapeHtml(item.name)}</span>
             ${pill}
+            ${tierBadge(item.id)}
           </div>
           <div class="card-meta">
             Every ${item.cadenceDays}d ·
@@ -2836,6 +2873,7 @@ function openEdit(id) {
   const kd = id ? keyDatesFor(id) : {};
   document.getElementById("f_birthday").value = kd.birthday || "";
   document.getElementById("f_anniversary").value = kd.anniversary || "";
+  document.getElementById("f_tier").value = id ? tierFor(id) : "";
   openModal("editModal");
   document.getElementById("f_name").focus();
 }
@@ -2843,6 +2881,14 @@ function uid() { return "p_" + Date.now().toString(36) + "_" + Math.floor(Math.r
 document.getElementById("addBtn").onclick = () => openEdit(null);
 document.getElementById("editCancel").onclick = () => closeModal("editModal");
 document.getElementById("f_cadence_preset").addEventListener("change", syncCustomCadenceVisibility);
+// Picking a circle suggests its cadence (user can still override the cadence fields after).
+document.getElementById("f_tier").addEventListener("change", e => {
+  const t = TIERS.find(x => x.key === e.target.value);
+  if (!t) return;
+  document.getElementById("f_cadence_preset").value = presetValueFor(t.cadence);
+  document.getElementById("f_cadence_custom").value = t.cadence;
+  syncCustomCadenceVisibility();
+});
 document.getElementById("editSave").onclick = () => {
   const name = document.getElementById("f_name").value.trim();
   if (!name) { alert("Name required"); return; }
@@ -2872,6 +2918,7 @@ document.getElementById("editSave").onclick = () => {
   setContact(contactId, phone, email);
   setThread(contactId, document.getElementById("f_thread").value);
   setKeyDates(contactId, document.getElementById("f_birthday").value, document.getElementById("f_anniversary").value);
+  setTier(contactId, document.getElementById("f_tier").value);
   save(); render(); closeModal("editModal");
 };
 
@@ -3205,6 +3252,8 @@ document.getElementById("p_rename").onclick = async () => {
   if (threadsRaw) localStorage.setItem("keepInTouch.threads." + to, threadsRaw);
   const keydatesRaw = localStorage.getItem("keepInTouch.keydates." + PROJECT);
   if (keydatesRaw) localStorage.setItem("keepInTouch.keydates." + to, keydatesRaw);
+  const tiersRaw = localStorage.getItem("keepInTouch.tiers." + PROJECT);
+  if (tiersRaw) localStorage.setItem("keepInTouch.tiers." + to, tiersRaw);
   try {
     const fh = await idbGet("file." + PROJECT);
     if (fh) await idbSet("file." + to, fh);
@@ -3215,6 +3264,7 @@ document.getElementById("p_rename").onclick = async () => {
   localStorage.removeItem("keepInTouch.contacts." + PROJECT);
   localStorage.removeItem("keepInTouch.threads." + PROJECT);
   localStorage.removeItem("keepInTouch.keydates." + PROJECT);
+  localStorage.removeItem("keepInTouch.tiers." + PROJECT);
   unregisterProject(PROJECT);
   registerProject(to);
   gotoProject(to);
