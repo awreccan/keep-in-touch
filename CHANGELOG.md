@@ -2,6 +2,14 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.39.0 — 2026-06-07
+
+- **Gentler overdue list (roadmap #7, relief half).** When more than 5 people are overdue, Auto
+  mode now shows the 5 most urgent and tucks the rest behind a calm "↓ Show N more overdue — one at
+  a time is fine" expander (collapsible again) — reducing the wall-of-red that drives reminder
+  fatigue, without hiding anything. Presentation only, no stored state. (The "reschedule from today"
+  baseline-reset half stays for the synced backend, where it belongs.) 101/101 tests.
+
 ## v1.38.0 — 2026-06-07
 
 - **Relationship circles / tiers (roadmap #9).** Tag people Inner 💛 / Close 🧡 / Orbit 🔵; the

@@ -314,6 +314,10 @@
   }
   /* #9 tier badge in the card title */
   .tier-badge { font-size: 0.72rem; padding: 0.1rem 0.45rem; border-radius: 999px; background: var(--surface-2); color: var(--text-dim); font-weight: 600; }
+  /* #7 overdue-list expander row (wall-of-red relief) */
+  .overdue-more { list-style: none; text-align: center; padding: 0.5rem 0; }
+  .overdue-more .link-btn { font-size: 0.85rem; color: var(--text-dim); }
+  .overdue-more .link-btn:hover { color: var(--accent); }
   /* Talking-points thread note on a card (roadmap #5). */
   .thread-note {
     margin-top: 0.55rem; padding: 0.4rem 0.6rem; border-radius: var(--radius-sm);
@@ -774,10 +778,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.38.0";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.39.0";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.38.0: roadmap #9 — relationship tiers (Inner/Close/Orbit): device-local label + synced cadence preset)
+   Keep In Touch — renderer (v1.39.0: roadmap #7 (relief half) — overdue list caps at 5 with a gentle "show more", reducing wall-of-red)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -1616,7 +1620,7 @@ async function switchProjectInPlace(name) {
   fileHandle = null; pendingHandle = null; source = "local"; reconnectArmed = false;
   localSaveFailed = false; sheetSyncError = null;
   // reset the archived view (the in-place path keeps the module var; reload wouldn't)
-  showArchived = false; healthFilter = null; hideToast(); document.body.classList.remove("archived-view");
+  showArchived = false; healthFilter = null; overdueExpanded = false; hideToast(); document.body.classList.remove("archived-view");
   const tb = document.getElementById("toggleArchived");
   tb.textContent = "Show snoozed / archived"; tb.classList.remove("primary");
   // reflect the switch in the URL without navigating (keeps the gesture)
@@ -2145,6 +2149,8 @@ function dismissSuggestion(id, value) {
 /* ---------- rendering ---------- */
 let showArchived = false;
 let healthFilter = null;      // null | "overdue" | "due-soon" | "on-track" | "never-met" — active-view band filter (roadmap #4)
+let overdueExpanded = false;  // #7: when >OVERDUE_CAP overdue, collapse the tail behind a "show more" (runtime only, not persisted)
+const OVERDUE_CAP = 5;        // most-urgent overdue shown before the gentle expander
 let toastTimer = null;        // archive-undo toast dismissal timer
 // 4-way status band for the health strip + filter. Splits "never met" out of the
 // due-soon cls (statusOf buckets never-met as due-soon for sorting, but the glance
@@ -2223,7 +2229,19 @@ function render() {
   // both "manual" and "grid" are draggable reorder modes
   const draggable = (state.mode === "manual" || grid) && !showArchived;
 
+  // #7 wall-of-red relief: in auto + active view (no band filter), cap how many OVERDUE
+  // cards show before a gentle "show N more" expander. Presentation only — nothing hidden
+  // from data, just collapsed; sort already puts most-overdue first. Never applies to
+  // due-soon/on-track, and never in grid/garden/batch/manual/archived/filtered views.
+  const overdueCapActive = state.mode === "auto" && !showArchived && !healthFilter;
+  const overdueItems = overdueCapActive ? items.filter(it => statusOf(it).cls === "overdue") : [];
+  const overdueHidden = (overdueCapActive && !overdueExpanded && overdueItems.length > OVERDUE_CAP)
+    ? overdueItems.slice(OVERDUE_CAP) : [];
+  const hiddenIds = new Set(overdueHidden.map(it => it.id));
+  let shownOverdue = 0;
+
   items.forEach((item, i) => {
+    if (hiddenIds.has(item.id)) return;   // collapsed overdue tail
     const st = statusOf(item);
     const li = document.createElement("li");
     li.className = `card ${st.cls}${grid ? " compact" : ""}`;
@@ -2307,7 +2325,24 @@ function render() {
         </div>`;
     }
     list.appendChild(li);
+    // After the last shown overdue card, drop in the gentle expander for the collapsed tail.
+    if (overdueHidden.length && statusOf(item).cls === "overdue") {
+      shownOverdue++;
+      if (shownOverdue === OVERDUE_CAP) {
+        const more = document.createElement("li");
+        more.className = "overdue-more";
+        more.innerHTML = `<button class="link-btn" data-act="show-overdue">↓ Show ${overdueHidden.length} more overdue — one at a time is fine</button>`;
+        list.appendChild(more);
+      }
+    }
   });
+  // If the tail is expanded, offer a way to re-collapse it.
+  if (overdueCapActive && overdueExpanded && overdueItems.length > OVERDUE_CAP) {
+    const less = document.createElement("li");
+    less.className = "overdue-more";
+    less.innerHTML = `<button class="link-btn" data-act="hide-overdue">↑ Collapse overdue list</button>`;
+    list.appendChild(less);
+  }
   renderBanner();
   renderHealthStrip();
   renderOnThisDay();
@@ -2673,6 +2708,9 @@ document.getElementById("onThisDay").addEventListener("click", e => {
 document.getElementById("list").addEventListener("click", e => {
   const btn = e.target.closest("[data-act]");
   if (!btn) return;
+  // #7 overdue expander/collapser buttons live OUTSIDE any card — handle before id lookup.
+  if (btn.dataset.act === "show-overdue") { overdueExpanded = true; render(); return; }
+  if (btn.dataset.act === "hide-overdue") { overdueExpanded = false; render(); return; }
   // id lives on the .card (list/grid) OR the .garden-tile (garden mode) — the
   // data-act element IS the tile in garden mode, so read from whichever carries the id.
   const host = e.target.closest(".card, .garden-tile");
@@ -3274,6 +3312,7 @@ document.getElementById("p_rename").onclick = async () => {
 document.getElementById("toggleArchived").onclick = e => {
   showArchived = !showArchived;
   healthFilter = null;   // the band filter is an active-view concept; clear on view switch
+  overdueExpanded = false;
   e.target.textContent = showArchived ? "Show active" : "Show snoozed / archived";
   e.target.classList.toggle("primary", showArchived);
   hideToast();
