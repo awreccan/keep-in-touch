@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f7f6f4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121316" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+<title>Keep In Touch — Changelog</title>
+<script>
+  /* FOUC: re-resolve theme on load — carries over from the hub via shared file:// localStorage (Chrome/Arc); falls back to OS theme (Safari). */
+  (function(){try{var s=localStorage.getItem('theme');var d=s==='dark'||(s!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-theme',d?'dark':'light');}catch(e){}})();
+</script>
+<style>
+  :root{ color-scheme:light dark;
+    --bg:#f7f6f4;--surface:#ffffff;--surface-2:#f0eee9;--text:#1d1c1a;--text-dim:#6b6862;--line:#e2ded6;
+    --brand:#2f6df0;--brand-ink:#1b4fc4;--brand-wash:#e8f0fe;--maxw:820px;--mono:ui-monospace,"SF Mono",Menlo,monospace;}
+  @media (prefers-color-scheme: dark){:root{
+    --bg:#121316;--surface:#1b1d22;--surface-2:#23262d;--text:#ecebe8;--text-dim:#9a988f;--line:#2e313a;
+    --brand:#6c9bff;--brand-ink:#9fbcff;--brand-wash:#1c2740;}}
+  html[data-theme="light"]{color-scheme:light;
+    --bg:#f7f6f4;--surface:#ffffff;--surface-2:#f0eee9;--text:#1d1c1a;--text-dim:#6b6862;--line:#e2ded6;
+    --brand:#2f6df0;--brand-ink:#1b4fc4;--brand-wash:#e8f0fe;}
+  html[data-theme="dark"]{color-scheme:dark;
+    --bg:#121316;--surface:#1b1d22;--surface-2:#23262d;--text:#ecebe8;--text-dim:#9a988f;--line:#2e313a;
+    --brand:#6c9bff;--brand-ink:#9fbcff;--brand-wash:#1c2740;}
+  *{box-sizing:border-box;}
+  html{font-size:100%;}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:1rem/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;transition:background .3s,color .3s;}
+  .bar{position:sticky;top:0;z-index:10;backdrop-filter:blur(12px);background:color-mix(in srgb,var(--bg) 82%,transparent);
+    border-bottom:1px solid var(--line);display:flex;align-items:center;gap:1rem;padding:.7rem 1.2rem;}
+  .bar a.home{ text-decoration:none;color:var(--brand-ink);font-weight:700;font-size:.95rem;}
+  .bar .t{font-weight:700;}
+  .bar .sp{flex:1;}
+  .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:2px;gap:2px;}
+  .seg button{border:0;background:transparent;color:var(--text-dim);cursor:pointer;font:inherit;font-size:.8rem;font-weight:600;padding:.3rem .55rem;border-radius:999px;}
+  .seg button[aria-checked="true"]{background:var(--surface);color:var(--text);}
+  main{max-width:var(--maxw);margin:0 auto;padding:2rem 1.3rem 4rem;}
+  .stale{display:none;background:var(--brand-wash);border:1px solid color-mix(in srgb,var(--brand) 35%,transparent);
+    color:var(--brand-ink);border-radius:10px;padding:.6rem .9rem;font-size:.85rem;margin-bottom:1.4rem;}
+  .src{font-size:.8rem;color:var(--text-dim);margin-bottom:1.4rem;}
+  .src code{font-family:var(--mono);background:var(--surface-2);padding:.1rem .4rem;border-radius:5px;}
+  h1,h2,h3{letter-spacing:-.02em;line-height:1.2;}
+  h1{font-size:2rem;margin:.2rem 0 1rem;} h2{font-size:1.45rem;margin:2rem 0 .8rem;padding-top:.6rem;border-top:1px solid var(--line);}
+  h3{font-size:1.15rem;margin:1.4rem 0 .5rem;}
+  a{color:var(--brand-ink);}
+  code{font-family:var(--mono);background:var(--surface-2);padding:.12rem .4rem;border-radius:6px;font-size:.88em;}
+  pre{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:1rem;overflow:auto;}
+  pre code{background:none;padding:0;font-size:.85rem;}
+  blockquote{border-left:3px solid var(--brand);margin:1rem 0;padding:.3rem 0 .3rem 1rem;color:var(--text-dim);}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem;}
+  th,td{border:1px solid var(--line);padding:.5rem .7rem;text-align:left;vertical-align:top;}
+  th{background:var(--surface-2);}
+  hr{border:0;border-top:1px solid var(--line);margin:2rem 0;}
+  img{max-width:100%;}
+</style>
+</head>
+<body>
+<div class="bar">
+  <a class="home" href="README.html">← Keep In Touch</a>
+  <span class="t">📋 Changelog</span>
+  <span class="sp"></span>
+  <div class="seg" role="radiogroup" aria-label="Color theme">
+    <button role="radio" aria-checked="false" data-mode="system" title="Follow system">🖥</button>
+    <button role="radio" aria-checked="true"  data-mode="light"  title="Light">☀️</button>
+    <button role="radio" aria-checked="false" data-mode="dark"   title="Dark">🌙</button>
+  </div>
+</div>
+<main>
+  <div class="stale" id="stale">⚠️ This page was generated from <code>CHANGELOG.md</code>; the source has changed since. Re-run <code>gen-doc-pages.mjs</code> to refresh.</div>
+  <div class="src">Generated from <code>CHANGELOG.md</code> · source updated 2026-06-08 04:57 UTC · this HTML is a generated artifact — edit the <code>.md</code>, not this file.</div>
+  <h1>Changelog</h1>
+<p>All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under <code>releases/vN/</code>.</p>
+<h2>v1.41.1 — 2026-06-07</h2>
+<p><strong>Backend manifest fix (email F9).</strong> Running <code>installDailyReminder</code> failed with
+&quot;Specified permissions are not sufficient to call ScriptApp.getProjectTriggers&quot; — the
+deployed <code>appsscript.json</code> declared only <code>spreadsheets.currentonly</code> + <code>script.send_mail</code>,
+but trigger management needs <code>script.scriptapp</code>. Added that scope (plus <code>userinfo.email</code>
+for the default-recipient lookup) and redeployed. Re-running <code>installDailyReminder</code> in the
+editor now prompts for the trigger/email permissions and arms the daily digest.
+<code>appsscript.json</code> is now tracked in the repo (it&#39;s the deployable manifest, no secrets).</p>
+<h2>v1.41.0 — 2026-06-07</h2>
+<p><strong>Backend deployed → full roadmap complete (13/13).</strong> The Apps Script backend was upgraded
+to the 14-column schema (notes / tier / keyDates / cadenceAnchor + per-meeting channel in
+the notes JSON), with the live web-app deployment updated in place (same <code>/exec</code> URL). A
+read→write→read migration of the live 10-column sheet was proven lossless before deploy
+(14/14), and a live POST→GET round-trip confirmed every field survives.</p>
+<ul>
+<li><strong>#7 Reschedule-from-today</strong> — a &quot;Reschedule…&quot; action sets a synced <code>cadenceAnchor</code> that
+pushes the next nudge out to a chosen date <em>without</em> logging a meeting or hiding the person.
+Defer-only (a past anchor is ignored); clears automatically when you next log a meeting.
+Syncs across devices.</li>
+<li><strong>#8 Channel tag is now synced</strong> — the per-meeting channel (call/coffee/text/video/
+in-person) rides the history entry to the Sheet instead of staying device-local; existing
+device-local tags still display as a fallback.</li>
+<li><strong>Daily email (F9)</strong> — the backend digest is deployed and verified; it activates once the
+one-time <code>installDailyReminder</code> is run in the Apps Script editor (grants the send-mail
+permission).</li>
+</ul>
+<h2>v1.40.0 — 2026-06-07</h2>
+<ul>
+<li><strong>Per-meeting channel tag (roadmap #8).</strong> In a person&#39;s history, tag how you connected —
+☎️ call / ☕ coffee / 💬 text / 📹 video / 🤝 in person — with a tap (tap again to clear). The most
+recent meeting&#39;s channel shows as an emoji on the card. Stored device-locally
+(<code>keepInTouch.channels.&lt;project&gt;</code>, keyed per meeting, kept out of the synced history — zero sync
+risk); upgrades to the synced per-meeting <code>ch</code> field when the backend is deployed. 106/106 tests.</li>
+</ul>
+<h2>v1.39.0 — 2026-06-07</h2>
+<ul>
+<li><strong>Gentler overdue list (roadmap #7, relief half).</strong> When more than 5 people are overdue, Auto
+mode now shows the 5 most urgent and tucks the rest behind a calm &quot;↓ Show N more overdue — one at
+a time is fine&quot; expander (collapsible again) — reducing the wall-of-red that drives reminder
+fatigue, without hiding anything. Presentation only, no stored state. (The &quot;reschedule from today&quot;
+baseline-reset half stays for the synced backend, where it belongs.) 101/101 tests.</li>
+</ul>
+<h2>v1.38.0 — 2026-06-07</h2>
+<ul>
+<li><strong>Relationship circles / tiers (roadmap #9).</strong> Tag people Inner 💛 / Close 🧡 / Orbit 🔵; the
+card shows a small tier badge, and picking a circle suggests its cadence (14 / 45 / 120 days) into
+the cadence field — so the cadence effect syncs everywhere (it writes the normal <code>cadenceDays</code>),
+while the tier label rides device-locally (<code>keepInTouch.tiers.&lt;project&gt;</code>, out of the Sheet sync;
+upgrades to synced when the backend gains the tier column). 94/94 tests.</li>
+</ul>
+<h2>v1.37.0 — 2026-06-07</h2>
+<ul>
+<li><strong>🎂 Key dates (roadmap #6).</strong> Add a birthday and/or anniversary per person; cards show a
+countdown chip (&quot;🎂 birthday in 5d&quot;) when one is within 30 days, with recurring month-day math
+(year-rollover and Feb-29 safe). Stored device-locally (separate <code>keepInTouch.keydates.&lt;project&gt;</code>
+map, kept out of the Sheet sync — zero sync risk); upgrades to synced when the backend gains the
+key-dates column. Invalid dates are rejected on save. 89/89 tests.</li>
+</ul>
+<h2>v1.36.0 — 2026-06-07</h2>
+<ul>
+<li><strong>Talking points</strong> (roadmap #5) — a single freeform &quot;pick up next time&quot; note per person
+(e.g. <em>&quot;ask how the move went; their kid started school&quot;</em>), shown as a subtle 💬 line on
+their card so you walk into the next conversation prepared. One field, deliberately not
+form-heavy journaling. Saved <strong>on this device only</strong> like contact info — kept out of the
+synced data so it can&#39;t disturb cross-device sync — and carried across project rename.</li>
+</ul>
+<h2>v1.35.0 — 2026-06-07</h2>
+<ul>
+<li><strong>One-tap reach-out</strong> (roadmap #1) — add a phone and/or email to anyone in the edit
+screen, and their cards gain one-tap <strong>📞 Call · 💬 Text · ✉️ Email</strong> chips (native
+<code>tel:</code>/<code>sms:</code>/<code>mailto:</code> links). Closes the loop from &quot;you&#39;re due to reach out&quot; straight
+to reaching out. Contact details are saved <strong>on this device only</strong> (clearly labelled),
+kept entirely separate from the synced data so they can never disturb cross-device sync;
+when you later connect a Sheet with contact columns they can upgrade to synced. Carried
+across project rename. Malicious values are escaped (no injection via a crafted email).</li>
+</ul>
+<h2>v1.34.0 — 2026-06-07</h2>
+<ul>
+<li><strong>Garden 🌱 view</strong> (roadmap #12) — a new opt-in mode tab that shows each active person
+as a plant tile whose health is a pure function of how overdue they are: 🌳 thriving →
+🌿 healthy → 🌼 needs-water-soon → 🍂 wilting → 🥀 parched, with never-met people as 🌰
+seeds. Tiles sort most-wilting-first and tapping one opens that person&#39;s actions. A calm,
+glanceable overview that makes opening the app a small delight rather than a chore.
+Presentation-only — no new data, no backend, respects <code>prefers-reduced-motion</code>.</li>
+</ul>
+<h2>v1.33.0 — 2026-06-06</h2>
+<h3>Added</h3>
+<ul>
+<li><strong>&quot;This month ✨&quot; recap.</strong> A new toolbar button shows a private monthly snapshot built entirely from your meeting log — meetings logged, people seen, reconnections, your longest-awaited catch-up, and who you&#39;ve been most consistent with — with a one-tap &quot;Copy summary&quot; to share if you want. Nothing leaves your device unless you copy it. A quiet, encouraging month gets a &quot;fresh page&quot; nudge rather than an empty stat sheet — never any guilt framing.</li>
+</ul>
+<h2>v1.32.0 — 2026-06-06</h2>
+<h3>Added</h3>
+<ul>
+<li><strong>Relationship-health glance.</strong> A calm at-a-glance strip under the banner shows how your whole list is doing — a single stacked bar split into overdue / due-soon / never-met / on-track, with counts. Tap any band (in the bar or the legend) to filter the list to just those people; tap again or &quot;clear filter&quot; to show everyone. Pure overview — no new data, works offline.</li>
+<li><strong>&quot;On this day&quot; memories.</strong> When you open the app, if you met someone exactly a year (or more) ago today, a warm card resurfaces it — with the note you saved, if any — and a one-tap &quot;Met today&quot; to reconnect right then. Dismiss hides it for the day. A gentle reason to open the app even when nobody&#39;s due.</li>
+</ul>
+<h2>v1.31.0 — 2026-06-06</h2>
+<h3>Fixed (ninth-audit finding)</h3>
+<ul>
+<li><strong>Impossible dates can&#39;t sneak in anymore.</strong> A value shaped like a date but not real — e.g. month 13 or February 30 — used to pass validation, then show up as &quot;In NaNd&quot; and quietly disappear from the due/overdue math. Dates are now checked for being real calendar days (not just the right shape) everywhere they enter the app — history, snooze date, archive date, sheet sync, and paste/CSV import. Invalid ones are dropped on load.</li>
+</ul>
+<h2>v1.30.0 — 2026-06-06</h2>
+<h3>Fixed (eighth-audit finding)</h3>
+<ul>
+<li><strong>Pressing Enter in Settings no longer triggers the wrong action.</strong> The Settings panel has two main buttons (Connect/Sync and Import), so pressing Enter while editing the &quot;remind X days before&quot; field could fire &quot;Connect / Sync now&quot; and close the panel mid-edit. Enter now only auto-submits a dialog when it has a single unambiguous primary action; in panels with more than one (like Settings) Enter does nothing and you tap the button you want. Single-action dialogs (Add person, Snooze, etc.) still submit on Enter as before.</li>
+</ul>
+<h2>v1.29.0 — 2026-06-06</h2>
+<h3>Fixed (seventh-audit finding)</h3>
+<ul>
+<li><strong>Security: hardened number fields against a crafted import.</strong> Cadence, remind-days, and the global remind setting are now coerced to real numbers the moment data is loaded (from a JSON/paste import, file, or sheet). Previously a hand-crafted import could place markup in those fields, which rendered unescaped on a card — the same cross-site-scripting class as the earlier date-field fixes, now closed structurally (a number simply can&#39;t carry markup). Garbage values fall back to safe defaults (cadence 30, remind = inherit global, global 3).</li>
+</ul>
+<h2>v1.28.0 — 2026-06-06</h2>
+<h3>Fixed (sixth-audit findings)</h3>
+<ul>
+<li><strong>Un-snoozing someone on one device now sticks everywhere.</strong> Previously, waking a snoozed person on one device could be silently undone the next time another device synced (it even re-snoozed them on the shared sheet). Cross-device un-snooze and un-archive now propagate correctly. <em>(Also fixes a stale &quot;dismissed cadence suggestion&quot; lingering across devices.)</em></li>
+<li><strong>Security: closed a second cross-site-scripting sink.</strong> The archive date (<code>archivedAt</code>) was rendered without escaping — same class as the snooze-field issue. It&#39;s now HTML-escaped and validated as a real date on load.</li>
+<li><strong>Editing a meeting&#39;s date no longer logs a phanty extra &quot;met today&quot;.</strong> Pressing Enter while editing a date in the History view used to both save the edit <em>and</em> trigger a spurious new meeting for today; Escape closed the whole dialog instead of just the edit. Both now behave correctly.</li>
+<li><strong>No false &quot;couldn&#39;t save&quot; warning after switching projects.</strong> A save failure on one project no longer carries its warning over to a healthy project you switch to.</li>
+<li><strong>The drift nudge comes back after you dismiss a cadence suggestion.</strong> Dismissing the &quot;change cadence?&quot; suggestion no longer permanently hides the separate &quot;time for a catch-up?&quot; nudge.</li>
+<li><strong>Reconnection tally is stable.</strong> Snoozing or archiving someone you reconnected with this month no longer retroactively lowers your &quot;reconnections this month&quot; count.</li>
+</ul>
+<h2>v1.27.0 — 2026-06-06</h2>
+<h3>Added</h3>
+<ul>
+<li><strong>Reconnection wins.</strong> When you log a meeting with someone you&#39;d drifted past their cadence, the app gives a warm one-time cheer (&quot;🌱 Reconnected with Alex — 4 weeks overdue. Nice one.&quot;) and keeps a calm &quot;N reconnections this month&quot; tally in the banner. It only ever celebrates — there&#39;s no streak to break and nothing turns red for falling behind.</li>
+<li><strong>Smart drift nudge.</strong> Beyond the per-person cadence, the app now learns your <em>actual</em> rhythm with someone and gently flags when you&#39;ve slipped past it (&quot;🫶 You usually see Sam ~every 30d — it&#39;s been 50d. Time for a catch-up?&quot;). It stays quiet when your set cadence already matches your rhythm, and defers to the existing cadence-tuning suggestion when they disagree, so a card never shows two competing prompts.</li>
+</ul>
+<h3>Fixed (fifth-audit findings)</h3>
+<ul>
+<li><strong>Security: closed a stored cross-site-scripting hole.</strong> A crafted value in the <code>snoozedUntil</code> Sheet cell could inject and run script when the snoozed person rendered. That field is now HTML-escaped on display and validated as a real date on load (non-dates are dropped), on every sync path.</li>
+<li><strong>Daily reminder email worked for no one with meeting history.</strong> A type mismatch made the digest throw and silently skip any project tab containing a contact who&#39;d ever logged a meeting — i.e. essentially everyone. The email backend now reads meeting dates correctly. <strong>Requires redeploying <code>backend/Code.gs</code>.</strong></li>
+<li><strong>Snooze reasons and archive dates no longer vanish on sync.</strong> These device-local notes were being dropped on a normal Sheet load once a person&#39;s edits had synced. Loads now preserve them while still letting cross-device edits win.</li>
+<li><strong>Closed a sync race that could revert a just-saved edit.</strong> If a reconnect-triggered refresh and a save overlapped, a stale read could undo the save. Reads now wait for an in-flight save to finish first.</li>
+<li><strong>&quot;Unsynced changes&quot; is now clearer and self-recovering.</strong> The message no longer says &quot;back online&quot; when you never went offline, it&#39;s announced to screen readers, and the app retries automatically when you refocus the tab or it becomes visible — not only on a network reconnect.</li>
+<li><strong>Honest save status for file &amp; browser storage.</strong> If a save to a connected file is denied, or browser storage is full, the app now shows a persistent &quot;⚠ not saved&quot; warning instead of continuing to claim your data is saved.</li>
+<li><strong>Time-of-day date correctness.</strong> &quot;Met today&quot;, snooze, and due dates now use your local calendar day everywhere, fixing an off-by-one that could occur late in the evening in western time zones.</li>
+<li><strong>Offline app shell is more robust.</strong> A failed update no longer wipes the last working offline copy of the app, and the service worker only swaps in a new shell once it&#39;s fully cached.</li>
+<li><strong>Accessibility &amp; keyboard.</strong> Dialogs are now labelled for screen readers, focus returns to where you opened them, and you can press Escape to close or Enter to confirm.</li>
+</ul>
+<h2>v1.26.0 — 2026-06-06</h2>
+<h3>Fixed (fourth-audit finding)</h3>
+<ul>
+<li><strong>An edit made while offline (or during a hiccup) is never silently lost.</strong> If saving to the Sheet fails — you&#39;re offline, your Google sign-in lapsed, or the network blips — the change you made (a cadence, snooze, archive, rename, etc.) used to be quietly reverted to the Sheet&#39;s old value the next time the app opened. Now that change is protected: it sticks across reloads, the project bar shows a persistent <strong>&quot;⚠ unsynced changes — will retry when back online&quot;</strong> note, and the app automatically pushes it up the moment it reconnects (or the next time you open it online). Other people&#39;s edits and any contacts added on another device are still merged in correctly — your unsynced change doesn&#39;t overwrite them, and theirs don&#39;t overwrite yours.</li>
+<li><strong>Switching projects mid-save no longer drops the in-flight change.</strong> If you edited someone and immediately switched projects within the brief save window, that pending save is now flushed for the project you&#39;re leaving instead of being discarded.</li>
+</ul>
+<h2>v1.25.0 — 2026-06-06</h2>
+<h3>Fixed (third-audit findings)</h3>
+<ul>
+<li><strong>Edits made on another device now stick.</strong> Previously, changing a person&#39;s cadence, archive, or snooze on one device could be silently reverted when another device (with an older cached copy) synced. A normal Sheet load now takes the latest values from the Sheet for fields like cadence/archive/snooze, while still combining meeting history from both sides — so cross-device edits no longer fight each other.</li>
+<li><strong>The reserved sync tab can&#39;t be opened as a project.</strong> Typing or linking to the internal <code>kit-registry</code> name now safely falls back to the default project, so the behind-the-scenes cross-device project list can&#39;t be corrupted.</li>
+</ul>
+<h2>v1.24.0 — 2026-06-06</h2>
+<h3>Fixed (final-audit findings)</h3>
+<ul>
+<li><strong>Meeting notes no longer get dropped when devices sync.</strong> When merging your data with the Sheet, a note added on one device could be lost if another device had the same meeting date without a note. The merge now keeps the note from whichever side has one.</li>
+<li><strong>Importing no longer wipes your existing list.</strong> Importing a JSON export now <em>merges</em> into the current project (matching the on-screen promise), instead of silently replacing everyone — so restoring a backup or importing one list while another is open is safe. (CSV/TSV import already merged.)</li>
+<li><strong>No spurious reload on first install.</strong> Installing the app could trigger one needless reload; it now only reloads when a genuinely new version takes over.</li>
+</ul>
+<h2>v1.23.0 — 2026-06-06</h2>
+<h3>Fixed</h3>
+<ul>
+<li><strong>Corrupted data now cleans itself the moment you open the project — no edit needed.</strong> Previously, garbage history cells (from the old <code>[object Object]</code> / scrambled-date bugs) were dropped in-app on load but only written back to your Sheet on your next change. Now, if the app detects and heals corruption while loading, it immediately re-saves the cleaned data to the Sheet. Open the affected project on any device and the bad cells fix themselves automatically.</li>
+</ul>
+<h2>v1.22.0 — 2026-06-06</h2>
+<h3>Fixed</h3>
+<ul>
+<li><strong>Hardened the History view against an edge-case crash.</strong> If the history/timeline ever rendered for a person who&#39;d just been removed (a stale reference), it could throw. Both now no-op safely instead. (Surfaced by a real end-to-end backend test.)</li>
+</ul>
+<h2>v1.21.0 — 2026-06-06</h2>
+<h3>Added / Fixed (final audit items)</h3>
+<ul>
+<li><strong>Meeting notes now sync across devices via the Sheet.</strong> Notes are stored in a new <code>notes</code> column (as a compact per-date map), so a note you add on your computer shows up on your phone and vice-versa. The human-readable <code>history</code> cell stays plain dates. <strong>Requires redeploying <code>backend/Code.gs</code>.</strong></li>
+<li><strong>Renamed or removed projects stop coming back.</strong> Previously a project you renamed away from could reappear in the switcher on the next sync. Removed names are now tombstoned so cross-device discovery won&#39;t resurrect them (re-creating a project with that name clears the tombstone).</li>
+</ul>
+<h2>v1.20.0 — 2026-06-06</h2>
+<h3>Fixed (from an adversarial audit of the sync/PWA paths)</h3>
+<ul>
+<li><strong>Reloading a Sheet-backed project no longer loses data.</strong> The app used to overwrite everything with whatever the Sheet returned on each load — so meeting <strong>notes</strong> (which the Sheet doesn&#39;t store) and any people that existed only on this device were silently dropped. Loads now <em>merge</em> with what you have, keeping notes and local-only people while pulling in the Sheet&#39;s additions.</li>
+<li><strong>&quot;Connected but no data&quot; on mobile now shows a real reason.</strong> If the Sheet request redirects to a Google sign-in/error page (common when the phone&#39;s browser isn&#39;t signed into the right Google account), the app now says so (&quot;couldn&#39;t sync — check your Sheet URL / token&quot;) instead of silently showing an empty local list. It also stays bound to the Sheet so your edits still save up.</li>
+<li><strong>A failed sync no longer secretly demotes you to local-only.</strong> Saves keep going to the Sheet, and a wrong/expired token now shows &quot;save failed&quot; instead of a false &quot;saved ✓&quot;.</li>
+<li><strong>Installed app updates itself.</strong> When a new version is deployed, the PWA now reloads once to pick it up, instead of a warm Android window running stale code indefinitely.</li>
+<li><strong>The daily reminder email no longer lists a phantom &quot;kit-registry&quot; project</strong>, and the hidden sync tab is excluded from project listings everywhere.</li>
+</ul>
+<h2>v1.19.0 — 2026-06-05</h2>
+<h3>Fixed</h3>
+<ul>
+<li><strong>Dates that Google Sheets auto-formats no longer corrupt your data.</strong> If Sheets turned a date cell into a real date value, the backend used to stringify it as a long locale string (e.g. &quot;Thu Apr 30 2026 00:00:00 GMT-0700 (Pacific Daylight Time)&quot;) which then got scrambled. The backend now converts any date-typed cell to plain <code>YYYY-MM-DD</code> on read. Combined with the v1.18 self-heal on load, this both prevents and cleans up that garbage. <strong>Requires redeploying <code>backend/Code.gs</code>.</strong></li>
+</ul>
+<h2>v1.18.0 — 2026-06-05</h2>
+<h3>Fixed</h3>
+<ul>
+<li><strong>Old corrupted data now self-heals on load.</strong> If a project&#39;s meeting history was previously damaged (cells showing <code>[object Object]</code> from the earlier sync bug), opening it now silently drops the garbage tokens, keeps any real dates, and writes clean data back on the next save — no crash, no manual cleanup needed. (Meeting dates are validated as real <code>YYYY-MM-DD</code> values before use.)</li>
+</ul>
+<h2>v1.17.0 — 2026-06-05</h2>
+<h3>Fixed</h3>
+<ul>
+<li><strong>Your Google Sheet data now loads on other devices.</strong> Connecting the Sheet is now a once-per-device action that applies to <em>all</em> your projects (previously each project needed its own connection, so a freshly-connected device showed only an empty local list). After connecting, if your current list is empty but the Sheet has others, the project picker opens automatically. To pull a specific list, open the project switcher and type its tab name (e.g. <code>ppl</code>) — it loads from the Sheet and is remembered.</li>
+<li><strong>Cross-device project discovery without any backend redeploy.</strong> Devices sharing one Sheet now sync their project list through a hidden <code>kit-registry</code> tab, so a project you create or open on one device appears on the others. (Tabs created entirely outside the app are also auto-listed <em>if</em> the backend is redeployed to v1.16+; otherwise just type the tab name once.)</li>
+<li><strong>Settings closes immediately when you press Connect</strong> (and the redundant &quot;connected&quot; pop-up is gone — the data appearing and the &quot;saved ✓&quot; badge are the confirmation).</li>
+</ul>
+<h2>v1.16.0 — 2026-06-05</h2>
+<h3>Fixed</h3>
+<ul>
+<li><strong>Critical: Google Sheet sync no longer corrupts data.</strong> After per-meeting notes were added, saving to the Sheet wrote malformed values (meeting history showed up as <code>[object Object]</code>) and could damage existing projects. The app now writes clean date values to the Sheet, and any already-corrupted cells are safely ignored on load. <strong>This works without redeploying your Apps Script</strong> — though redeploying (latest <code>backend/Code.gs</code>) is recommended so cross-device project discovery and the date-safe write also run server-side.</li>
+<li><strong>Connecting a Sheet on a new device now finds your existing lists.</strong> Previously a fresh device stayed on &quot;default&quot; and didn&#39;t see projects already in the Sheet. It now reads the Sheet&#39;s tabs and lists them in the project switcher (requires the redeployed backend).</li>
+</ul>
+<h3>Added</h3>
+<ul>
+<li><strong>App version is shown</strong> in the project bar (e.g. <code>v1.16.0</code>), so you can tell which version each device is running — handy when diagnosing sync issues.</li>
+<li><strong>Paste-to-import.</strong> Settings now has a paste box: paste exported JSON, <em>or</em> copy a block of cells straight from Google Sheets (tab- or comma-separated, with a header row) and import them. Imported people merge into the current project (matched by name, meeting dates combined) — a quick recovery path.</li>
+</ul>
+<h2>v1.15.0 — 2026-06-05</h2>
+<h3>Changed</h3>
+<ul>
+<li><strong>Visual &amp; UX refresh (research-driven).</strong> A calmer, more considered look throughout: warmer neutral background, flatter surfaces with crisp hairline borders (no heavy shadows), a tighter type hierarchy, and gentle motion (cards ease in, modals/toasts settle in, a subtle &quot;saved ✓&quot; pulse) — all of which respect your &quot;reduce motion&quot; system setting.</li>
+<li><strong>Status is clearer and more accessible.</strong> Overdue / due-soon / on-track now read with a leading colored dot <em>and</em> a higher-contrast label (meets WCAG AA in both light and dark), so status no longer relies on color alone.</li>
+<li><strong>Better on touch + keyboard.</strong> Buttons and tap targets grow to a comfortable 44px on touch devices, and every control now shows a visible focus ring for keyboard navigation.</li>
+<li><strong>New app icon.</strong> Replaced the off-centre placeholder with a crisp, properly centered icon — a recurrence loop wrapping ascending ranked bars, reflecting what the app is: recurring keep-in-touch reminders with your own priority ranking. Installs cleanly on Android (maskable-safe) and iOS.</li>
+</ul>
+<h2>v1.14.0 — 2026-06-05</h2>
+<h3>Added</h3>
+<ul>
+<li><strong>History timeline (P3-F8).</strong> The History view now opens with a compact sparkline of your meetings over time — each dot is a meeting, the line between them is color-coded green/amber/red by whether you kept pace with the cadence, and a dashed trailing segment shows time since the last meeting. A one-line summary calls out your longest on-cadence streak and longest gap. Hover any dot for the exact date and days since the previous meeting.</li>
+</ul>
+<h2>v1.13.0 — 2026-06-05</h2>
+<h3>Added</h3>
+<ul>
+<li><strong>Adaptive cadence suggestions (P3-F3).</strong> When your actual meeting rhythm with someone drifts from the cadence you set, the card gently suggests the real one — e.g. &quot;💡 You&#39;re meeting ~every 30d, but cadence is 7d.&quot; Tap &quot;Use 30d&quot; to apply it or &quot;Dismiss&quot; to keep yours (it won&#39;t nag again unless your rhythm changes). Only appears with enough history (4+ meetings) and a steady rhythm — never for erratic or near-matching cadences. Suggestion math uses the median gap, so one outlier won&#39;t skew it.</li>
+</ul>
+<h2>v1.12.0 — 2026-06-05</h2>
+<h3>Added</h3>
+<ul>
+<li><strong>Snooze (P3-F7).</strong> Temporarily hide someone until a date — handy when a person is on sabbatical, traveling, or you&#39;ve agreed to reconnect later. Tap &quot;Snooze…&quot; on a card, pick 1 week / 1 month / 3 months or a specific date, optionally add a reason. Snoozed people drop out of your due/overdue list and the reminder email, show a 💤 badge in the &quot;Show snoozed / archived&quot; view, and <strong>return to your active list automatically</strong> when the date passes (or tap &quot;Wake up&quot; anytime).</li>
+</ul>
+<h2>v1.11.0 — 2026-06-05</h2>
+<h3>Added</h3>
+<ul>
+<li><strong>Per-meeting notes (F2).</strong> Each logged meeting can carry an optional note (e.g. &quot;coffee, talked about the new role&quot;). Add one when you log a meeting, or tap &quot;+ note&quot; / &quot;Edit note&quot; on any past entry in the History view. One-tap &quot;✔ Met today&quot; stays exactly as fast — notes are always optional. Notes are included in CSV export.</li>
+<li><strong>Save status indicator.</strong> A small &quot;saving… → saved ✓&quot; (and &quot;save failed&quot; if something goes wrong) now appears in the project bar after every change, so you always know your data made it — especially useful with the Google Sheet backend.</li>
+</ul>
+<h2>v1.10.0 — 2026-06-05</h2>
+<h3>Fixed</h3>
+<ul>
+<li><strong>Connecting a Google Sheet no longer wipes data you already have.</strong> Previously, loading a list (e.g. from a file) and then connecting a Sheet for the first time would overwrite your list with the empty Sheet. Now connecting <strong>merges</strong> — your existing people are kept and pushed <em>up</em> to the Sheet, and if the Sheet already has data the two are unioned (meeting histories combined, never dropped). First connect = your data is saved to the Sheet, exactly as expected.</li>
+</ul>
+<h3>Added</h3>
+<ul>
+<li><strong>First-run onboarding.</strong> New visitors are greeted with a friendly choice of where their list lives: <strong>Sync with a Google Sheet</strong> (recommended — keeps phone and computer in step, enables daily email reminders) or <strong>Just use this device</strong>. A collapsed &quot;Advanced&quot; option offers a local file on desktop. Returning users and anyone with existing data skip straight in. Settings now labels the Sheet as recommended for syncing.</li>
+</ul>
+<h2>v1.9.0 — 2026-06-05</h2>
+<h3>Added</h3>
+<ul>
+<li><strong>Installable app (PWA).</strong> When served over HTTPS (or localhost), Keep In Touch can be installed to your home screen / dock on Android, macOS, and iOS — it then opens like a native app with no browser chrome and works offline (the app shell is cached; your data still lives in your Sheet / file / browser). Android &amp; desktop Chrome show an &quot;⬇ Install app&quot; button in the header; iOS shows a one-time &quot;Add to Home Screen&quot; hint. The status-bar color follows the in-app light/dark theme. All of this stays dormant on <code>file://</code> (where service workers aren&#39;t allowed), so nothing changes for local use.</li>
+</ul>
+<h2>v1.8.1 — 2026-06-05</h2>
+<h3>Changed</h3>
+<ul>
+<li><strong>Batch &quot;Set&quot; view now lists people in your &quot;My ranking&quot; order</strong> (instead of arbitrary insertion order), so batch-setting cadence/remind-days follows the same priority you arranged. People with no rank fall to the end.</li>
+</ul>
+<h2>v1.8.0 — 2026-06-05</h2>
+<h3>Added</h3>
+<ul>
+<li><strong>Daily email reminders (F9) — the big one.</strong> When the Google Sheet backend is connected, a server-side Apps Script trigger emails you once a day listing everyone who&#39;s due or overdue, grouped by project, <strong>even when every device is closed</strong>. No Web Push, no app install — works the same on iPhone, Android, and desktop, because it&#39;s just email. Set it up by running <code>installDailyReminder()</code> once in the Apps Script editor (see backend/DEPLOY.md); tune the send hour, recipient, or pause it via Script Properties. The email&#39;s &quot;due&quot; logic is verified to match the in-app banner exactly. The reminder path only reads your Sheet — it never writes, so it can&#39;t disturb your data.</li>
+</ul>
+<h2>v1.7.0 — 2026-06-05</h2>
+<h3>Added</h3>
+<ul>
+<li><strong>Edit &amp; delete individual meetings (F8).</strong> In a person&#39;s History, each logged meeting now has Edit (inline date picker, commit with Enter, cancel with Escape) and Delete (with a confirm naming the exact date — history drives your due dates, so deletes are deliberate). Editing a date re-sorts and de-dupes; the card&#39;s status recomputes immediately.</li>
+<li><strong>Export history as CSV</strong> alongside the existing JSON export. The toolbar now has &quot;Export JSON&quot; and &quot;Export CSV&quot;. The CSV (one row per meeting: person_id, person, cadence_days, remind_days, archived, meeting_date, note, is_last_met) is Excel-ready (UTF-8 BOM, RFC-4180 quoting, CRLF) for analysis in any spreadsheet. The <code>note</code> column is reserved for the upcoming per-meeting notes feature.</li>
+</ul>
+<h2>v1.6.0 — 2026-06-05</h2>
+<h3>Fixed</h3>
+<ul>
+<li><strong>The &quot;due / overdue&quot; banner no longer counts archived people while you&#39;re viewing the archive.</strong> Due math is now computed from a dedicated active-only set, so the banner reads identically whether you&#39;re on the active list or the archived view.</li>
+</ul>
+<h3>Added</h3>
+<ul>
+<li><strong>Archive polish (F7).</strong> Archiving someone shows an &quot;Archived {name} · Undo&quot; toast (6s) so a mis-tap is one tap to reverse. The archived view drops the &quot;✔ Met today&quot; button (logging a meeting on a parked contact made no sense), shows the date each person was archived (on file/local backends), and dims parked cards. Grid ranking is forced off in the archived view, and switching projects always returns you to the active list.</li>
+</ul>
+<blockquote>
+<p>Note: the archived-on date is shown on file/local storage; on the Google Sheet backend the date isn&#39;t persisted yet (the <code>archived</code> flag itself is) — it&#39;ll show plain &quot;archived&quot; there until a future Sheet-column update.</p>
+</blockquote>
+<h2>v1.5.0 — 2026-06-05</h2>
+<h3>Added</h3>
+<ul>
+<li><strong>Cadence presets (F3).</strong> The &quot;Meet every (days)&quot; box is now a dropdown of friendly presets — Weekly, Every 2 weeks, Monthly, Quarterly, Twice a year, Yearly — plus a &quot;Custom…&quot; option that reveals a day field for any other interval. Existing off-preset values (e.g. 45 days, common when edited via the Sheet) open as Custom with the exact number preserved; nothing about stored data or due-math changed.</li>
+</ul>
+<h2>v1.4.0 — 2026-06-05</h2>
+<h3>Added</h3>
+<ul>
+<li><strong>Batch &quot;Set&quot; mode — drag people onto a value to bulk-set cadence or remind-days.</strong> A new mode tab shows every active person as a draggable chip and a value axis (1…30, plus 45/60/90/182/365 presets for cadence). Toggle between &quot;Set cadence&quot; and &quot;Set remind-before&quot;, then drag any chip onto a number to set that person&#39;s value instantly. Each axis value shows a count badge of how many people sit there, and the dropped chip flashes to confirm. Works with mouse (desktop) and touch (Android).</li>
+</ul>
+<h2>v1.3.3 — 2026-06-05</h2>
+<h3>Fixed</h3>
+<ul>
+<li><strong>Bookmarked <code>file://…?project=X</code> URLs no longer lose the project.</strong> macOS <code>open</code> strips the <code>?query</code> from <code>file://</code> URLs before the browser sees it (verified: <code>http://</code> and AppleScript <code>open location</code> keep it; <code>open -a</code> does not), so a saved link would drop <code>?project=work</code> and fall back to the empty &quot;default&quot;. The app now remembers the last-active project and restores it when a load arrives with no project param, rewriting the URL bar to include <code>?project=…</code> again. After the first visit, the bookmark just works.</li>
+</ul>
+<h3>Added</h3>
+<ul>
+<li><strong>Relative &quot;time ago&quot; for the last meeting.</strong> Cards and the history view now show &quot;today / yesterday / 5 days ago / 2 weeks ago / 3 months ago / 1 year ago&quot; alongside the date, so you can see at a glance how long it&#39;s been.</li>
+</ul>
+<h2>v1.3.2 — 2026-06-05</h2>
+<h3>Fixed</h3>
+<ul>
+<li><strong>Switching projects now loads instantly — no page reload, no manual &quot;Reconnect&quot;.</strong> Selecting a project used to navigate to a new URL, which dropped the click&#39;s user gesture; the new page then couldn&#39;t request file permission on its own and stranded you on a blank screen until you pressed Reconnect. Projects now switch <strong>in-place</strong> (via <code>history.replaceState</code>), so the selecting click&#39;s gesture flows straight into loading that project&#39;s data.</li>
+<li><strong>Empty &quot;default&quot; project greets you with the project picker.</strong> A first run (or any empty, unbound default) now opens the project switcher automatically instead of showing a bare empty list — it doubles as the create-a-project screen.</li>
+<li><strong>No more redundant permission dialog when connecting a file.</strong> Connecting a project file relied on the picker&#39;s own grant; the extra <code>readwrite</code> request was removed (write access is upgraded lazily on first save), so connecting asks for at most the single picker interaction.</li>
+</ul>
+<h2>v1.3.1 — 2026-06-05</h2>
+<h3>Fixed</h3>
+<ul>
+<li><strong>Connected-file projects no longer show a blank screen after reload.</strong> Browsers reset a stored file handle&#39;s permission to &quot;prompt&quot; across page loads, and the app&#39;s auto-load asked for <code>readwrite</code> (which can only be granted from a user gesture), so it silently fell back to empty localStorage. Now:<ul>
+<li><strong>Zero-click reconnect:</strong> auto-load checks only the <em>read</em> grant via <code>queryPermission</code> (no prompt, no gesture needed). If it survived, the file loads silently and picks up any external edits — you never re-pick the file.</li>
+<li><strong>Lazy write upgrade:</strong> the <code>readwrite</code> permission is requested only on your first actual edit (which is a user gesture), so saving still works without an extra step on load.</li>
+<li><strong>localStorage mirror:</strong> every file load/save now also mirrors into localStorage, so the worst case (grant fully lapsed) shows your real last-known data instead of a blank page.</li>
+<li><strong>One-tap reconnect fallback:</strong> if the read grant did lapse, the first interaction anywhere on the page silently re-grants and loads the file; a &quot;Reconnect file&quot; link in the project bar is also available. Either way you never choose the file again.</li>
+</ul>
+</li>
+</ul>
+<h2>v1.3.0 — 2026-06-05</h2>
+<h3>Added</h3>
+<ul>
+<li><strong>Grid rank mode.</strong> A third tab beside &quot;Auto&quot; and &quot;My ranking&quot;. Lays the list out in responsive multi-column compact cards (rank number + name + status + key facts) so a long list is fully visible at once for informed drag-reordering. The page widens to 1200px in this mode. Shares the same ranking (<code>manualOrder</code>) as &quot;My ranking&quot; — reordering in either view updates both.</li>
+</ul>
+<h2>v1.2.0 — 2026-06-05</h2>
+<h3>Added</h3>
+<ul>
+<li><strong>Google Sheets backend.</strong> The Sheet is the human-editable database (click-edit-autosave); the app reads/writes it as JSON via an Apps Script web app (<code>backend/Code.gs</code>, deploy guide <code>backend/DEPLOY.md</code>). One Sheet holds many projects (one tab each). Works on all devices including Android → real cross-device sync. Autosave is debounced; localStorage is kept as an offline cache.</li>
+<li><strong>Editable projects.</strong> Click the project chip to switch, create, or rename projects. Project names are normalized (<code>lowercase</code>, <code>[a-z0-9-]</code>). A project registry (<code>keepInTouch.projects</code>) powers the switcher. Rename moves data + all bindings (file handle, Sheet config, local cache) to the new name.</li>
+<li><strong>Loading UI.</strong> Full-screen spinner shown at first paint and during file/Sheet loads, so opening a pre-populated project no longer looks frozen. When a Sheet is configured, cached data paints instantly and the Sheet refresh happens in the background.</li>
+</ul>
+<h3>Notes on bindings</h3>
+<ul>
+<li>Data and <em>bindings</em> are stored separately. Bindings are per-(device × project): file handle in IndexedDB (<code>file.&lt;project&gt;</code>), Sheet config in localStorage (<code>keepInTouch.sheet.&lt;project&gt;</code>). The Sheet binding points at one shared cloud target; the file binding is inherently per-device. Load priority: Sheet → file → localStorage.</li>
+</ul>
+<h2>v1.0.0 — 2026-06-05</h2>
+<h3>Added</h3>
+<ul>
+<li>Initial single-file renderer. Drag-to-rank (mouse + touch), per-person &quot;last met&quot; + &quot;meet every X days&quot; cadence, auto due/overdue mode, manual ranking mode, append-only meeting history, archive/restore, global + per-item reminder lead time (in-app banner), light/dark toggle, 640px capped centered layout, JSON export/import.</li>
+<li>Renderer architecture: data owned per-project (<code>?project=NAME</code>) via connected file (File System Access API) or namespaced localStorage fallback. App stores no user data of its own.</li>
+<li>Docs: <code>HOWTO.md</code> (humans), <code>FOR-AGENTS.md</code> (agent integration + schema), <code>PLAN.md</code> (vision + P1/P2/P3 featureset).</li>
+</ul>
+
+
+</main>
+<script>
+  /* embedded source mtime (epoch ms) for staleness check is informational here;
+     real staleness is detected at generation time. Theme toggle below. */
+  var segBtns=document.querySelectorAll('.seg button');
+  function reflect(){var s=null;try{s=localStorage.getItem('theme');}catch(e){}var m=s==='dark'?'dark':s==='light'?'light':'system';
+    segBtns.forEach(function(b){b.setAttribute('aria-checked',b.dataset.mode===m?'true':'false');});}
+  function apply(m){try{if(m==='system')localStorage.removeItem('theme');else localStorage.setItem('theme',m);
+    var d=localStorage.getItem('theme')==='dark'||(!localStorage.getItem('theme')&&matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.setAttribute('data-theme',d?'dark':'light');}catch(e){}reflect();}
+  segBtns.forEach(function(b){b.addEventListener('click',function(){apply(b.dataset.mode);});});
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change',function(e){
+    try{if(localStorage.getItem('theme'))return;}catch(_){}
+    document.documentElement.setAttribute('data-theme',e.matches?'dark':'light');});
+  reflect();
+</script>
+</body>
+</html>

@@ -28,6 +28,7 @@
     --ok: #2e9e6b; --ok-wash: #e3f5ec;
     --soon: #c2810f; --soon-wash: #fbf0d9;
     --over: #d2503f; --over-wash: #fbe6e2;
+    --on-accent: #ffffff;
     --radius: 15px; --maxw: 1080px;
     --shadow: 0 1px 2px rgba(0,0,0,.04), 0 10px 34px rgba(20,20,30,.07);
     --shadow-lift: 0 2px 6px rgba(0,0,0,.06), 0 18px 50px rgba(20,20,30,.12);
@@ -40,6 +41,7 @@
       --ok: #4cc78c; --ok-wash: #142a20;
       --soon: #e0a83f; --soon-wash: #322713;
       --over: #f0796a; --over-wash: #36211d;
+      --on-accent: #ffffff;
       --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 40px rgba(0,0,0,.45);
       --shadow-lift: 0 2px 8px rgba(0,0,0,.4), 0 22px 60px rgba(0,0,0,.6);
     }
@@ -52,6 +54,7 @@
     --brand: #2f6df0; --brand-ink: #1b4fc4; --brand-wash: #e8f0fe;
     --ok: #2e9e6b; --ok-wash: #e3f5ec; --soon: #c2810f; --soon-wash: #fbf0d9;
     --over: #d2503f; --over-wash: #fbe6e2;
+    --on-accent: #ffffff;
     --shadow: 0 1px 2px rgba(0,0,0,.04), 0 10px 34px rgba(20,20,30,.07);
     --shadow-lift: 0 2px 6px rgba(0,0,0,.06), 0 18px 50px rgba(20,20,30,.12);
   }
@@ -62,6 +65,7 @@
     --brand: #6c9bff; --brand-ink: #9fbcff; --brand-wash: #1c2740;
     --ok: #4cc78c; --ok-wash: #142a20; --soon: #e0a83f; --soon-wash: #322713;
     --over: #f0796a; --over-wash: #36211d;
+    --on-accent: #ffffff;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 40px rgba(0,0,0,.45);
     --shadow-lift: 0 2px 8px rgba(0,0,0,.4), 0 22px 60px rgba(0,0,0,.6);
   }
@@ -234,6 +238,84 @@
   .doc b { display: block; font-size: .98rem; color: var(--brand-ink); }
   .doc span { font-size: .86rem; color: var(--text-dim); }
 
+  /* ---------- behind-the-scenes tooling ---------- */
+  .tool-layout { display: grid; grid-template-columns: 1.05fr .95fr; gap: 1.4rem; align-items: start; }
+  @media (max-width: 820px) { .tool-layout { grid-template-columns: 1fr; } }
+
+  /* health-check runner (headline) */
+  .hc {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow-lift); padding: 1.1rem 1.2rem; align-self: stretch;
+  }
+  .hc-head { display: flex; align-items: center; gap: .55rem; padding-bottom: .8rem; margin-bottom: .9rem;
+    border-bottom: 1px dashed var(--line); }
+  .hc-head .leaf { font-size: 1.4rem; }
+  .hc-head b { font-size: 1rem; }
+  .hc-head .sub { font-size: .78rem; color: var(--text-dim); }
+  .hc-head .cadence { margin-left: auto; font-size: .72rem; font-weight: 700; color: var(--brand-ink);
+    background: var(--brand-wash); padding: .2rem .6rem; border-radius: 999px; white-space: nowrap; }
+  .hc-run { width: 100%; border: 1px solid var(--brand); background: var(--brand); color: var(--on-accent); cursor: pointer;
+    font: inherit; font-weight: 700; font-size: .95rem; padding: .6rem 1rem; border-radius: 11px;
+    transition: transform .08s ease, box-shadow .15s, background .15s; }
+  .hc-run:hover { box-shadow: var(--shadow-lift); }
+  .hc-run:active { transform: translateY(1px); }
+  .hc-run[disabled] { opacity: .6; cursor: default; }
+  .hc-steps { list-style: none; margin: 1rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+  .hc-step { display: flex; align-items: center; gap: .7rem; padding: .6rem .7rem; border-radius: 11px;
+    background: var(--surface-2); border: 1px solid var(--line); opacity: .45;
+    transition: opacity .3s ease, border-color .3s ease, background .3s ease, transform .3s ease; transform: translateY(4px); }
+  .hc-step.run { opacity: 1; transform: translateY(0); border-color: color-mix(in srgb, var(--soon) 45%, var(--line)); }
+  .hc-step.done { opacity: 1; transform: translateY(0); border-color: color-mix(in srgb, var(--ok) 45%, var(--line));
+    background: var(--ok-wash); }
+  .hc-step .mark { width: 1.4rem; height: 1.4rem; flex: none; border-radius: 50%; display: grid; place-items: center;
+    font-size: .8rem; font-weight: 800; background: var(--surface-3); color: var(--text-dim); }
+  .hc-step.run .mark { background: var(--soon-wash); color: var(--soon); }
+  .hc-step.run .mark::after { content: ""; width: .7rem; height: .7rem; border-radius: 50%;
+    border: 2px solid color-mix(in srgb, var(--soon) 55%, transparent); border-top-color: var(--soon);
+    animation: hcspin .7s linear infinite; }
+  .hc-step.run .mark .lbl { display: none; }
+  .hc-step.done .mark { background: var(--ok); color: var(--on-accent); }
+  @keyframes hcspin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .hc-step.run .mark::after { animation: none; } }
+  .hc-step .txt b { display: block; font-size: .9rem; }
+  .hc-step .txt span { font-size: .77rem; color: var(--text-dim); }
+  .hc-result { margin-top: .9rem; font-size: .85rem; font-weight: 650; padding: .65rem .8rem; border-radius: 11px;
+    background: var(--ok-wash); color: var(--ok); border: 1px solid color-mix(in srgb, var(--ok) 35%, transparent);
+    opacity: 0; max-height: 0; overflow: hidden; transition: opacity .3s ease, max-height .3s ease, margin .3s ease; }
+  .hc-result.show { opacity: 1; max-height: 120px; }
+  .hc-note { font-size: .73rem; color: var(--text-dim); margin: .8rem 0 0; }
+
+  /* expandable tooling cards (reuses the .feat / .chev pattern conventions) */
+  .tool-list { display: flex; flex-direction: column; gap: .7rem; }
+  .tool-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: .95rem 1.1rem; cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .08s; }
+  .tool-card:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--line)); transform: translateY(-2px); box-shadow: var(--shadow); }
+  .tool-card .top { display: flex; align-items: center; gap: .6rem; }
+  .tool-card .ico { font-size: 1.3rem; }
+  .tool-card h3 { margin: 0; font-size: 1rem; flex: 1; }
+  .tool-card .chev { font-size: .75rem; color: var(--text-dim); transition: transform .2s; }
+  .tool-card.open .chev { transform: rotate(180deg); }
+  .tool-card .s { margin: .4rem 0 0; color: var(--text-dim); font-size: .88rem; }
+  .tool-card .more { max-height: 0; overflow: hidden; transition: max-height .3s ease, margin .3s ease; }
+  .tool-card.open .more { max-height: 360px; margin-top: .6rem; }
+  .tool-card .more p { font-size: .85rem; margin: 0; padding-top: .6rem; border-top: 1px dashed var(--line); color: var(--text-dim); }
+  .tool-card .more .tag { display: inline-block; font-size: .73rem; font-weight: 600; padding: .18rem .5rem;
+    border-radius: 7px; background: var(--surface-2); margin: .5rem .3rem 0 0; }
+
+  /* audit convergence sparkline */
+  .conv { margin-top: 1.1rem; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 1rem 1.1rem; }
+  .conv .ch { display: flex; align-items: baseline; gap: .55rem; margin-bottom: .6rem; }
+  .conv .ch b { font-size: .95rem; }
+  .conv .ch span { font-size: .78rem; color: var(--text-dim); }
+  .conv svg { display: block; width: 100%; height: auto; color: var(--brand); }
+  .conv .bar { fill: color-mix(in srgb, var(--brand) 55%, transparent); transition: fill .15s; }
+  .conv .bar.zero { fill: var(--ok); }
+  .conv .barwrap:hover .bar { fill: var(--brand); }
+  .conv .lbl { fill: var(--text-dim); font-size: 7px; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .conv .axis { stroke: var(--line); }
+  .conv .legend { font-size: .76rem; color: var(--text-dim); margin: .55rem 0 0; }
+
   footer { padding: 2.5rem 0 3.5rem; color: var(--text-dim); font-size: .9rem; }
   .toast { position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%) translateY(2rem);
     background: var(--text); color: var(--bg); padding: .6rem 1.1rem; border-radius: 999px; font-size: .88rem; font-weight: 600;
@@ -263,7 +345,7 @@
       <p class="tagline">A gentle tracker that quietly answers one question — <em>who have I been neglecting?</em> — and makes reaching out a single tap. Set a rhythm, log when you connect, never drift apart by accident.</p>
       <div class="cta">
         <a class="btn primary" href="https://awreccan.github.io/keep-in-touch/">Open the app →</a>
-        <a class="btn ghost" href="HOWTO.md">How to use it</a>
+        <a class="btn ghost" href="HOWTO.html">How to use it</a>
       </div>
     </div>
 
@@ -342,14 +424,53 @@
 
 <section>
   <div class="wrap">
+    <p class="eyebrow">Built around it</p>
+    <h2>Behind the scenes — the tooling we built to keep it healthy</h2>
+    <p class="lead">The app is one HTML file, but it ships with a small workshop of automation around it: a self-running health monitor, a one-command test harness, an adversarial bug-hunt that converged to zero, and docs that flag themselves when stale. Run the monitor below, then crack open each tool.</p>
+    <div class="tool-layout">
+      <!-- INTERACTION 5: simulated live health-check run -->
+      <div class="hc">
+        <div class="hc-head">
+          <span class="leaf">🩺</span>
+          <span><b>Live-deploy health check</b><br><span class="sub">launchd · <code>com.keep-in-touch.healthcheck</code></span></span>
+          <span class="cadence">every 4h</span>
+        </div>
+        <button class="hc-run" id="hcRun">▶ Run health check</button>
+        <ul class="hc-steps" id="hcSteps">
+          <li class="hc-step" data-step="0"><span class="mark"><span class="lbl">1</span></span>
+            <span class="txt"><b>VERSION matches HEAD</b><span>live <code>VERSION</code> equals the repo's HEAD — catches a partial deploy (drift)</span></span></li>
+          <li class="hc-step" data-step="1"><span class="mark"><span class="lbl">2</span></span>
+            <span class="txt"><b>index.html → HTTP 200</b><span>the live app on GitHub Pages is actually reachable</span></span></li>
+          <li class="hc-step" data-step="2"><span class="mark"><span class="lbl">3</span></span>
+            <span class="txt"><b>SW cache = kit-shell-&lt;VERSION&gt;</b><span>service-worker cache name in <code>sw.js</code> — catches a stale offline cache</span></span></li>
+        </ul>
+        <div class="hc-result" id="hcResult">✅ All green — stays silent. A macOS notification fires <em>only</em> on drift or outage, so there's no alert fatigue.</div>
+        <p class="hc-note">Runs every 4 hours and at load via a launchd agent — it survives reboot <em>and</em> session exit, unlike a Claude Code session cron that expires after 7 days and only fires while the REPL is idle. Every run appends a status line to <code>~/.claude/kit-healthcheck.log</code>.</p>
+      </div>
+
+      <!-- INTERACTION 6: expandable tooling cards (same pattern as the feature grid) -->
+      <div class="tool-list" id="toolList"></div>
+    </div>
+
+    <!-- audit convergence sparkline (inline SVG, themed via var(--...)) -->
+    <div class="conv">
+      <div class="ch"><b>Adversarial audit — confirmed bugs per round</b><span>10 rounds → 0</span></div>
+      <svg viewBox="0 0 300 80" role="img" aria-label="Confirmed-bug count per audit round: 11, 3, 2, 1, 12, 6, 2, 1, 1, 0" id="convSvg"></svg>
+      <p class="legend">Round 5's spike (1 → 12) is a regression wave from a burst of feature work; the hunt drove it back down to a demonstrable zero-bug fixpoint by round 10.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
     <p class="eyebrow">Read more</p>
     <h2>Documentation</h2>
     <div class="docs">
-      <a class="doc" href="HOWTO.md"><b>HOWTO.md →</b><span>Day-to-day usage, projects, where your data lives</span></a>
-      <a class="doc" href="PLAN.md"><b>PLAN.md →</b><span>The original vision and feature design</span></a>
-      <a class="doc" href="CHANGELOG.md"><b>CHANGELOG.md →</b><span>Every version and what shipped — fullest build narrative</span></a>
-      <a class="doc" href="backend/DEPLOY.md"><b>backend/DEPLOY.md →</b><span>Set up or redeploy the Sheet + Apps Script backend</span></a>
-      <a class="doc" href="README.md"><b>README.md →</b><span>This page, in Markdown</span></a>
+      <a class="doc" href="HOWTO.html"><b>HOWTO.md →</b><span>Day-to-day usage, projects, where your data lives</span></a>
+      <a class="doc" href="PLAN.html"><b>PLAN.md →</b><span>The original vision and feature design</span></a>
+      <a class="doc" href="CHANGELOG.html"><b>CHANGELOG.md →</b><span>Every version and what shipped — fullest build narrative</span></a>
+      <a class="doc" href="backend/DEPLOY.html"><b>backend/DEPLOY.md →</b><span>Set up or redeploy the Sheet + Apps Script backend</span></a>
+      <a class="doc" href="README.doc.html"><b>README.md →</b><span>This page, in Markdown</span></a>
     </div>
   </div>
 </section>
@@ -501,6 +622,87 @@
   }
   tierBtns.forEach(function(b){ b.addEventListener('click', function(){ setTier(b.dataset.tier); }); });
   setTier('sheet');
+
+  /* ---------- INTERACTION 5: simulated health-check run ---------- */
+  var hcRun = document.getElementById('hcRun'),
+      hcStepEls = document.querySelectorAll('#hcSteps .hc-step'),
+      hcResult = document.getElementById('hcResult');
+  var reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function runHealthCheck(){
+    hcRun.disabled = true;
+    hcResult.classList.remove('show');
+    hcStepEls.forEach(function(el){ el.classList.remove('run','done'); el.querySelector('.mark .lbl').textContent = el.dataset.step*1 + 1; });
+    var runMs = reduceMotion ? 60 : 520, gapMs = reduceMotion ? 90 : 240;
+    var i = 0;
+    function next(){
+      if (i >= hcStepEls.length){
+        setTimeout(function(){ hcResult.classList.add('show'); hcRun.disabled = false;
+          hcRun.textContent = '↻ Run again'; }, gapMs);
+        return;
+      }
+      var el = hcStepEls[i];
+      el.classList.add('run');
+      setTimeout(function(){
+        el.classList.remove('run'); el.classList.add('done');
+        el.querySelector('.mark .lbl').textContent = '✓';
+        i++; setTimeout(next, gapMs);
+      }, runMs);
+    }
+    next();
+  }
+  hcRun.addEventListener('click', runHealthCheck);
+
+  /* ---------- INTERACTION 6: expandable tooling cards ---------- */
+  var tools = [
+    { ico:'🧪', t:'One-command test harness',
+      s:'<code>run-tests.sh</code> — 111 automated tests, all passing.',
+      m:'Boots a static app server plus a mock <code>/exec</code> backend, runs <code>node --check</code> on the extracted app script, then three Playwright suites, and tears everything down by exact PID (never a broad kill). The suites total 111 tests — 14 (unsynced-edit protection) + 25 (core regression R1–R7) + 72 (feature suite: drift nudge, reconnection, overdue-cap, channel tags, reschedule). Each asserts zero console errors.',
+      tags:['node --check','3 Playwright suites','111 passing','zero console errors'] },
+    { ico:'🛡️', t:'Adversarial audit → 0 bugs',
+      s:'Parallel finders hunt; independent verifiers confirm.',
+      m:'Built on the Claude Code Workflow tool: parallel "dimension finder" agents hunt for bugs across separate dimensions, then independent verifier agents adversarially confirm each finding before it counts. A whole XSS class was closed structurally — the affected fields are coerced to numeric types at the trust boundary, so markup-bearing strings can’t reach any render sink by construction.',
+      tags:['Workflow tool','finder + verifier','structural XSS fix','10 rounds → 0'] },
+    { ico:'🚀', t:'Release &amp; deploy automation',
+      s:'Immutable freezes + a one-step backend push.',
+      m:'<code>release.sh</code> freezes the current HEAD into <code>releases/v&lt;minor&gt;/</code> and repoints a <code>latest</code> symlink — a stable, immutable build that won’t shift under downstream consumers. The Google Apps Script backend deploys via the clasp CLI (<code>backend/deploy-via-clasp.sh</code>): push <code>Code.gs</code> + manifest, redeploy the <code>/exec</code> web app.',
+      tags:['immutable releases','latest symlink','clasp CLI','/exec web app'] },
+    { ico:'📄', t:'Self-maintaining docs',
+      s:'Markdown is truth; HTML viewers flag themselves stale.',
+      m:'<code>gen-doc-pages.mjs</code> renders each Markdown doc (HOWTO, PLAN, CHANGELOG, backend/DEPLOY, README) into a themed, self-contained <code>.html</code> viewer carrying the identical theme tokens + toggle, with a staleness banner that lights up if the source <code>.md</code> changed after generation. The <code>.md</code> is the single source of truth; the <code>.html</code> is a generated artifact. The dev repo is kept in sync with the public GitHub Pages repo on each ship — leak-scanned before every push.',
+      tags:['one source of truth','staleness banner','themed viewers','leak-scan on push'] }
+  ];
+  var toolList = document.getElementById('toolList');
+  toolList.innerHTML = tools.map(function(f){
+    return '<div class="tool-card">'+
+      '<div class="top"><span class="ico">'+f.ico+'</span><h3>'+f.t+'</h3><span class="chev">▾</span></div>'+
+      '<p class="s">'+f.s+'</p>'+
+      '<div class="more"><p>'+f.m+'</p>'+f.tags.map(function(x){return '<span class="tag">'+x+'</span>';}).join('')+'</div></div>';
+  }).join('');
+  toolList.addEventListener('click', function(e){ var c = e.target.closest('.tool-card'); if(c) c.classList.toggle('open'); });
+
+  /* ---------- audit convergence sparkline (inline SVG) ---------- */
+  var convData = [11,3,2,1,12,6,2,1,1,0];
+  var svg = document.getElementById('convSvg');
+  (function(){
+    var W = 300, H = 80, padT = 6, padB = 14, padX = 6;
+    var n = convData.length, max = Math.max.apply(null, convData);
+    var slot = (W - padX*2) / n, bw = slot * 0.62, gap = slot - bw;
+    var avail = H - padT - padB;
+    var ns = 'http://www.w3.org/2000/svg', parts = '';
+    // baseline axis
+    parts += '<line class="axis" x1="'+padX+'" y1="'+(H-padB)+'" x2="'+(W-padX)+'" y2="'+(H-padB)+'"/>';
+    convData.forEach(function(v,i){
+      var h = max ? (v/max)*avail : 0;
+      var x = padX + i*slot + gap/2;
+      var y = (H - padB) - h;
+      var bh = Math.max(h, v===0 ? 1.5 : h); // keep the 0 round visible as a sliver
+      parts += '<g class="barwrap">'+
+        '<rect class="bar'+(v===0?' zero':'')+'" x="'+x.toFixed(1)+'" y="'+(v===0?(H-padB-1.5):y).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+(v===0?1.5:h).toFixed(1)+'" rx="1.5"><title>Round '+(i+1)+': '+v+' bug'+(v===1?'':'s')+'</title></rect>'+
+        '<text class="lbl" x="'+(x+bw/2).toFixed(1)+'" y="'+(H-padB+9)+'" text-anchor="middle">'+v+'</text>'+
+        '</g>';
+    });
+    svg.innerHTML = parts;
+  })();
 </script>
 </body>
 </html>

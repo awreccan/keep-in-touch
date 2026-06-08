@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f7f6f4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121316" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
+<title>Keep In Touch — HOWTO</title>
+<script>
+  /* FOUC: re-resolve theme on load — carries over from the hub via shared file:// localStorage (Chrome/Arc); falls back to OS theme (Safari). */
+  (function(){try{var s=localStorage.getItem('theme');var d=s==='dark'||(s!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-theme',d?'dark':'light');}catch(e){}})();
+</script>
+<style>
+  :root{ color-scheme:light dark;
+    --bg:#f7f6f4;--surface:#ffffff;--surface-2:#f0eee9;--text:#1d1c1a;--text-dim:#6b6862;--line:#e2ded6;
+    --brand:#2f6df0;--brand-ink:#1b4fc4;--brand-wash:#e8f0fe;--maxw:820px;--mono:ui-monospace,"SF Mono",Menlo,monospace;}
+  @media (prefers-color-scheme: dark){:root{
+    --bg:#121316;--surface:#1b1d22;--surface-2:#23262d;--text:#ecebe8;--text-dim:#9a988f;--line:#2e313a;
+    --brand:#6c9bff;--brand-ink:#9fbcff;--brand-wash:#1c2740;}}
+  html[data-theme="light"]{color-scheme:light;
+    --bg:#f7f6f4;--surface:#ffffff;--surface-2:#f0eee9;--text:#1d1c1a;--text-dim:#6b6862;--line:#e2ded6;
+    --brand:#2f6df0;--brand-ink:#1b4fc4;--brand-wash:#e8f0fe;}
+  html[data-theme="dark"]{color-scheme:dark;
+    --bg:#121316;--surface:#1b1d22;--surface-2:#23262d;--text:#ecebe8;--text-dim:#9a988f;--line:#2e313a;
+    --brand:#6c9bff;--brand-ink:#9fbcff;--brand-wash:#1c2740;}
+  *{box-sizing:border-box;}
+  html{font-size:100%;}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:1rem/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;transition:background .3s,color .3s;}
+  .bar{position:sticky;top:0;z-index:10;backdrop-filter:blur(12px);background:color-mix(in srgb,var(--bg) 82%,transparent);
+    border-bottom:1px solid var(--line);display:flex;align-items:center;gap:1rem;padding:.7rem 1.2rem;}
+  .bar a.home{ text-decoration:none;color:var(--brand-ink);font-weight:700;font-size:.95rem;}
+  .bar .t{font-weight:700;}
+  .bar .sp{flex:1;}
+  .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:2px;gap:2px;}
+  .seg button{border:0;background:transparent;color:var(--text-dim);cursor:pointer;font:inherit;font-size:.8rem;font-weight:600;padding:.3rem .55rem;border-radius:999px;}
+  .seg button[aria-checked="true"]{background:var(--surface);color:var(--text);}
+  main{max-width:var(--maxw);margin:0 auto;padding:2rem 1.3rem 4rem;}
+  .stale{display:none;background:var(--brand-wash);border:1px solid color-mix(in srgb,var(--brand) 35%,transparent);
+    color:var(--brand-ink);border-radius:10px;padding:.6rem .9rem;font-size:.85rem;margin-bottom:1.4rem;}
+  .src{font-size:.8rem;color:var(--text-dim);margin-bottom:1.4rem;}
+  .src code{font-family:var(--mono);background:var(--surface-2);padding:.1rem .4rem;border-radius:5px;}
+  h1,h2,h3{letter-spacing:-.02em;line-height:1.2;}
+  h1{font-size:2rem;margin:.2rem 0 1rem;} h2{font-size:1.45rem;margin:2rem 0 .8rem;padding-top:.6rem;border-top:1px solid var(--line);}
+  h3{font-size:1.15rem;margin:1.4rem 0 .5rem;}
+  a{color:var(--brand-ink);}
+  code{font-family:var(--mono);background:var(--surface-2);padding:.12rem .4rem;border-radius:6px;font-size:.88em;}
+  pre{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:1rem;overflow:auto;}
+  pre code{background:none;padding:0;font-size:.85rem;}
+  blockquote{border-left:3px solid var(--brand);margin:1rem 0;padding:.3rem 0 .3rem 1rem;color:var(--text-dim);}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem;}
+  th,td{border:1px solid var(--line);padding:.5rem .7rem;text-align:left;vertical-align:top;}
+  th{background:var(--surface-2);}
+  hr{border:0;border-top:1px solid var(--line);margin:2rem 0;}
+  img{max-width:100%;}
+</style>
+</head>
+<body>
+<div class="bar">
+  <a class="home" href="README.html">← Keep In Touch</a>
+  <span class="t">📖 HOWTO</span>
+  <span class="sp"></span>
+  <div class="seg" role="radiogroup" aria-label="Color theme">
+    <button role="radio" aria-checked="false" data-mode="system" title="Follow system">🖥</button>
+    <button role="radio" aria-checked="true"  data-mode="light"  title="Light">☀️</button>
+    <button role="radio" aria-checked="false" data-mode="dark"   title="Dark">🌙</button>
+  </div>
+</div>
+<main>
+  <div class="stale" id="stale">⚠️ This page was generated from <code>HOWTO.md</code>; the source has changed since. Re-run <code>gen-doc-pages.mjs</code> to refresh.</div>
+  <div class="src">Generated from <code>HOWTO.md</code> · source updated 2026-06-06 02:01 UTC · this HTML is a generated artifact — edit the <code>.md</code>, not this file.</div>
+  <h1>Keep In Touch — HOWTO</h1>
+<p>A single-file webapp that tracks people you want to stay in touch with: rank them, log when you last met, set a &quot;meet every X days&quot; cadence, and see who&#39;s <strong>due</strong> or <strong>overdue</strong>.</p>
+<blockquote>
+<p><strong>One-line model:</strong> the app is a <em>renderer</em>. Your data lives in <strong>your</strong> project&#39;s storage, not in the app. Open it with <code>?project=NAME</code> to keep separate, isolated lists.</p>
+</blockquote>
+<hr>
+<h2>Quick start</h2>
+<ol>
+<li>Open <code>index.html</code> (double-click, or serve it — see <em>Notifications caveat</em>).</li>
+<li>Tap <strong>+ Add person</strong> → name + &quot;meet every X days&quot; + optionally when you last met.</li>
+<li>You&#39;re done. The app shows who&#39;s due.</li>
+</ol>
+<h3>The three modes</h3>
+<ul>
+<li><strong>Auto · due / overdue</strong> — the list auto-ranks by urgency: never-met first, then most-overdue, then soonest-due. Read-only ordering.</li>
+<li><strong>My ranking</strong> — drag rows (handle on the left, works with touch too) into your own preference order. Stored separately from auto mode.</li>
+<li><strong>Grid rank</strong> — same ranking as &quot;My ranking&quot;, but laid out in dense multi-column cards so a long list is fully visible at once for informed drag-reordering. The page widens to use the screen. Reordering here and in &quot;My ranking&quot; stay in sync.</li>
+</ul>
+<h3>Daily use</h3>
+<ul>
+<li><strong>✔ Met today</strong> — one tap logs a meeting with today&#39;s date and resets the clock.</li>
+<li><strong>History</strong> — log a meeting on any date, or remove a wrong entry. History is <strong>append-only and never lost</strong>.</li>
+<li><strong>Edit</strong> — change name, cadence, or per-person reminder lead time.</li>
+<li><strong>Archive / Restore</strong> — hide someone without deleting; toggle <strong>Show archived</strong> to see them.</li>
+</ul>
+<h3>Reminders (today)</h3>
+<ul>
+<li>Settings (⚙️) → <strong>&quot;remind X days before due&quot;</strong> sets the global lead time.</li>
+<li>Per-person override lives in the Edit dialog.</li>
+<li>For now this drives the in-app <strong>due-soon banner</strong> at the top. Email/push delivery comes with the backend (see ROADMAP / PLAN.md).</li>
+</ul>
+<h3>Theme</h3>
+<ul>
+<li>🌙 / ☀️ in the header toggles light/dark. Preference is remembered.</li>
+</ul>
+<hr>
+<h2>Projects (multiple isolated lists)</h2>
+<p>The app owns no shared data bucket. Each <strong>project</strong> is its own world:</p>
+<pre><code>index.html?project=work       → your work contacts
+index.html?project=family     → family
+index.html?project=mentors    → mentors
+index.html                    → the &quot;default&quot; project
+</code></pre>
+<p>Switching the <code>?project=</code> value switches to a completely separate dataset. Two projects never see each other&#39;s data.</p>
+<h3>Where does a project&#39;s data live?</h3>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>When</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Google Sheet</strong></td>
+<td>Any device (recommended for sync)</td>
+<td>Settings ⚙ → <strong>Google Sheet backend</strong> → paste your Web app URL. The Sheet is your human-editable DB (open it, click any cell, autosaves). The app autosaves every change back to it. One Sheet holds all projects (one tab each). Set it up once via <code>backend/DEPLOY.md</code>.</td>
+</tr>
+<tr>
+<td><strong>Connected file</strong></td>
+<td>Desktop (Arc/Chrome/Edge)</td>
+<td>Header → <strong>Connect project file…</strong> binds to a <code>.json</code> <em>you</em> choose. All edits write back to that file; it auto-reconnects next launch. The project owns the bytes.</td>
+</tr>
+<tr>
+<td><strong>Namespaced localStorage</strong></td>
+<td>Fallback / offline</td>
+<td>Key <code>keepInTouch.project.&lt;NAME&gt;</code>. Persists on-device; also used as an offline cache when the Sheet is configured. Use <strong>Export / Import</strong> to move it.</td>
+</tr>
+</tbody></table>
+<p>Priority when the app loads: <strong>Google Sheet</strong> (if configured) → connected file → localStorage.</p>
+<p><strong>Updating the app never loses your data</strong> — data is keyed by origin + project, not by the HTML. A new app version reads the same data.</p>
+<hr>
+<h2>Platform notes</h2>
+<ul>
+<li><strong>Desktop:</strong> full experience, including direct file binding.</li>
+<li><strong>Android Chrome:</strong> full app (incl. touch drag-to-rank). No file-picker API, but the <strong>Google Sheet backend works on Android too</strong> — that&#39;s the recommended way to sync phone ↔ computer. Without it, falls back to localStorage + Export/Import.</li>
+</ul>
+<h2>Google Sheet backend (cross-device sync)</h2>
+<p>The Sheet IS your database — viewable and editable like any spreadsheet, and the app reads/writes it as JSON. Set up once: see <strong><code>backend/DEPLOY.md</code></strong> (create a Sheet, paste <code>backend/Code.gs</code> into Apps Script, deploy as a web app, paste the URL into Settings). Free, private to your Google account, works on every device.</p>
+<h2>Notifications caveat</h2>
+<p>OS-level push (alerts when the app is closed) needs HTTPS + a service worker + a sender — out of scope for v1. v1 gives the in-app due-soon banner. Email reminders and then push are on the roadmap.</p>
+<h2>Backup / move data</h2>
+<ul>
+<li><strong>Export</strong> (toolbar) downloads <code>keep-in-touch-&lt;project&gt;-&lt;date&gt;.json</code>.</li>
+<li><strong>Import</strong> (Settings) loads a previously exported file into the current project.</li>
+</ul>
+
+
+</main>
+<script>
+  /* embedded source mtime (epoch ms) for staleness check is informational here;
+     real staleness is detected at generation time. Theme toggle below. */
+  var segBtns=document.querySelectorAll('.seg button');
+  function reflect(){var s=null;try{s=localStorage.getItem('theme');}catch(e){}var m=s==='dark'?'dark':s==='light'?'light':'system';
+    segBtns.forEach(function(b){b.setAttribute('aria-checked',b.dataset.mode===m?'true':'false');});}
+  function apply(m){try{if(m==='system')localStorage.removeItem('theme');else localStorage.setItem('theme',m);
+    var d=localStorage.getItem('theme')==='dark'||(!localStorage.getItem('theme')&&matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.setAttribute('data-theme',d?'dark':'light');}catch(e){}reflect();}
+  segBtns.forEach(function(b){b.addEventListener('click',function(){apply(b.dataset.mode);});});
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change',function(e){
+    try{if(localStorage.getItem('theme'))return;}catch(_){}
+    document.documentElement.setAttribute('data-theme',e.matches?'dark':'light');});
+  reflect();
+</script>
+</body>
+</html>

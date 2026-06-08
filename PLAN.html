@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f7f6f4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121316" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
+<title>Keep In Touch — Plan</title>
+<script>
+  /* FOUC: re-resolve theme on load — carries over from the hub via shared file:// localStorage (Chrome/Arc); falls back to OS theme (Safari). */
+  (function(){try{var s=localStorage.getItem('theme');var d=s==='dark'||(s!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-theme',d?'dark':'light');}catch(e){}})();
+</script>
+<style>
+  :root{ color-scheme:light dark;
+    --bg:#f7f6f4;--surface:#ffffff;--surface-2:#f0eee9;--text:#1d1c1a;--text-dim:#6b6862;--line:#e2ded6;
+    --brand:#2f6df0;--brand-ink:#1b4fc4;--brand-wash:#e8f0fe;--maxw:820px;--mono:ui-monospace,"SF Mono",Menlo,monospace;}
+  @media (prefers-color-scheme: dark){:root{
+    --bg:#121316;--surface:#1b1d22;--surface-2:#23262d;--text:#ecebe8;--text-dim:#9a988f;--line:#2e313a;
+    --brand:#6c9bff;--brand-ink:#9fbcff;--brand-wash:#1c2740;}}
+  html[data-theme="light"]{color-scheme:light;
+    --bg:#f7f6f4;--surface:#ffffff;--surface-2:#f0eee9;--text:#1d1c1a;--text-dim:#6b6862;--line:#e2ded6;
+    --brand:#2f6df0;--brand-ink:#1b4fc4;--brand-wash:#e8f0fe;}
+  html[data-theme="dark"]{color-scheme:dark;
+    --bg:#121316;--surface:#1b1d22;--surface-2:#23262d;--text:#ecebe8;--text-dim:#9a988f;--line:#2e313a;
+    --brand:#6c9bff;--brand-ink:#9fbcff;--brand-wash:#1c2740;}
+  *{box-sizing:border-box;}
+  html{font-size:100%;}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:1rem/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;transition:background .3s,color .3s;}
+  .bar{position:sticky;top:0;z-index:10;backdrop-filter:blur(12px);background:color-mix(in srgb,var(--bg) 82%,transparent);
+    border-bottom:1px solid var(--line);display:flex;align-items:center;gap:1rem;padding:.7rem 1.2rem;}
+  .bar a.home{ text-decoration:none;color:var(--brand-ink);font-weight:700;font-size:.95rem;}
+  .bar .t{font-weight:700;}
+  .bar .sp{flex:1;}
+  .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:2px;gap:2px;}
+  .seg button{border:0;background:transparent;color:var(--text-dim);cursor:pointer;font:inherit;font-size:.8rem;font-weight:600;padding:.3rem .55rem;border-radius:999px;}
+  .seg button[aria-checked="true"]{background:var(--surface);color:var(--text);}
+  main{max-width:var(--maxw);margin:0 auto;padding:2rem 1.3rem 4rem;}
+  .stale{display:none;background:var(--brand-wash);border:1px solid color-mix(in srgb,var(--brand) 35%,transparent);
+    color:var(--brand-ink);border-radius:10px;padding:.6rem .9rem;font-size:.85rem;margin-bottom:1.4rem;}
+  .src{font-size:.8rem;color:var(--text-dim);margin-bottom:1.4rem;}
+  .src code{font-family:var(--mono);background:var(--surface-2);padding:.1rem .4rem;border-radius:5px;}
+  h1,h2,h3{letter-spacing:-.02em;line-height:1.2;}
+  h1{font-size:2rem;margin:.2rem 0 1rem;} h2{font-size:1.45rem;margin:2rem 0 .8rem;padding-top:.6rem;border-top:1px solid var(--line);}
+  h3{font-size:1.15rem;margin:1.4rem 0 .5rem;}
+  a{color:var(--brand-ink);}
+  code{font-family:var(--mono);background:var(--surface-2);padding:.12rem .4rem;border-radius:6px;font-size:.88em;}
+  pre{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:1rem;overflow:auto;}
+  pre code{background:none;padding:0;font-size:.85rem;}
+  blockquote{border-left:3px solid var(--brand);margin:1rem 0;padding:.3rem 0 .3rem 1rem;color:var(--text-dim);}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem;}
+  th,td{border:1px solid var(--line);padding:.5rem .7rem;text-align:left;vertical-align:top;}
+  th{background:var(--surface-2);}
+  hr{border:0;border-top:1px solid var(--line);margin:2rem 0;}
+  img{max-width:100%;}
+</style>
+</head>
+<body>
+<div class="bar">
+  <a class="home" href="README.html">← Keep In Touch</a>
+  <span class="t">🗺️ Plan</span>
+  <span class="sp"></span>
+  <div class="seg" role="radiogroup" aria-label="Color theme">
+    <button role="radio" aria-checked="false" data-mode="system" title="Follow system">🖥</button>
+    <button role="radio" aria-checked="true"  data-mode="light"  title="Light">☀️</button>
+    <button role="radio" aria-checked="false" data-mode="dark"   title="Dark">🌙</button>
+  </div>
+</div>
+<main>
+  <div class="stale" id="stale">⚠️ This page was generated from <code>PLAN.md</code>; the source has changed since. Re-run <code>gen-doc-pages.mjs</code> to refresh.</div>
+  <div class="src">Generated from <code>PLAN.md</code> · source updated 2026-06-06 01:56 UTC · this HTML is a generated artifact — edit the <code>.md</code>, not this file.</div>
+  <h1>Keep In Touch</h1>
+<h2>Goal / Vision</h2>
+<blockquote>
+<p>A <code>/webpage</code> where:</p>
+<ol>
+<li>It&#39;s a list of items that I can drag and drop to rank them</li>
+<li>I can assign when I met that item/person last</li>
+<li>I can assign a &quot;I want to meet this person&quot; once every X days</li>
+<li>The list auto-rotates in one mode of the webapp and auto-ranks based on who is coming up due soon and who is overdue</li>
+<li>I can rank the list based on my preference in another mode</li>
+<li>I can add new list items</li>
+<li>I can archive list items</li>
+<li>Point 2 history is recorded, never lost</li>
+<li>The webapp (hopefully just an HTML file on my Android phone and computer — that syncs to an easy-to-edit online backend like Google Sheets) can remind me X days before someone is coming due using a push notification on Android and macOS, and I can configure X globally for P1 and per-item for P2</li>
+</ol>
+</blockquote>
+<p>In one line: <strong>a personal &quot;stay in touch&quot; tracker</strong> — a ranked list of people I care about, each with a cadence (meet every X days) and a permanent meeting log, that tells me who&#39;s due or overdue and (eventually) reminds me before I fall out of touch.</p>
+<h2>Architecture decisions (locked in)</h2>
+<ul>
+<li><strong>Single <code>index.html</code></strong>, vanilla JS, no build step. Works offline.</li>
+<li><strong>The app is a RENDERER, not a data owner.</strong> It holds no shared global bucket of user data. Each <em>project</em> (think: a user / a context) supplies and owns its own data.<ul>
+<li><strong>Project identity = <code>?project=NAME</code> URL param</strong> (default <code>default</code>). Each project is a fully isolated instance.</li>
+<li><strong>Data lives in the project&#39;s storage</strong>, two tiers:<ol>
+<li><strong>Connected project file</strong> (preferred) — bind to a <code>.json</code> file <em>inside the project</em> via the File System Access API. All reads/writes go to that file; the handle is remembered in IndexedDB and auto-reconnects. The project owns the bytes; the app just renders and writes back.</li>
+<li><strong>Namespaced <code>localStorage</code></strong> (fallback) — key <code>keepInTouch.project.&lt;NAME&gt;</code>, used where file access isn&#39;t available (e.g. Android, see below). Export/Import moves data with the project.</li>
+</ol>
+</li>
+<li><strong>Only UI prefs</strong> (theme) live in app-global storage — never user data.</li>
+</ul>
+</li>
+<li><strong>Updating the HTML never loses data:</strong> data is keyed by origin + project, not by markup. Rewriting this file leaves every project&#39;s data intact (same origin + same <code>?project</code> + same storage key).</li>
+<li><strong>Theme:</strong> light by default (per <code>/webpage</code> skill), dark toggle in header; preference persisted.</li>
+<li><strong>Layout:</strong> capped at <code>--maxw</code> (640px) and centered — not full-width on desktop.</li>
+<li><strong>Hosting:</strong> GitHub Pages (free, HTTPS). The URL is public but contains <em>no data</em> — code only. Privacy preserved.</li>
+<li><strong>Reminders:</strong> email via a scheduled Apps Script trigger (later). True OS push is explicitly out of scope for P1.</li>
+</ul>
+<h3>Platform note — Android vs desktop data binding</h3>
+<ul>
+<li><strong>Desktop (Arc/Chrome/Edge):</strong> File System Access API works → &quot;Connect project file&quot; binds directly to a project <code>.json</code>; edits write straight back to disk. This is the full renderer-owns-nothing model.</li>
+<li><strong>Android (Chrome):</strong> <code>showOpenFilePicker</code> is <strong>not supported</strong>. The app auto-detects this and falls back to namespaced <code>localStorage</code>; the &quot;Connect project file&quot; button explains the limitation and points to Export/Import. Cross-device project sync on Android arrives with the backend step (P9-P2: a shared JSON/Sheets store both platforms read/write over HTTPS).</li>
+</ul>
+<hr>
+<h2>P1 — shipping featureset (localStorage, single file)</h2>
+<p>Each feature lists its P2 and P3 improvements.</p>
+<h3>F1. Drag-and-drop ranking</h3>
+<ul>
+<li><strong>P1:</strong> Reorder items by dragging in &quot;preference&quot; mode. Order persists.</li>
+<li><strong>P2:</strong> Touch-friendly drag handles for Android; haptic/visual drop feedback.</li>
+<li><strong>P3:</strong> Multi-select drag; keyboard reordering for accessibility.</li>
+</ul>
+<h3>F2. &quot;Last met&quot; date per item</h3>
+<ul>
+<li><strong>P1:</strong> Date picker per item; defaults to today when logged.</li>
+<li><strong>P2:</strong> Quick &quot;met today&quot; one-tap button; freeform note attached to each meeting.</li>
+<li><strong>P3:</strong> Location / channel (call, coffee, text) tagging per meeting.</li>
+</ul>
+<h3>F3. Cadence — &quot;meet every X days&quot;</h3>
+<ul>
+<li><strong>P1:</strong> Per-item integer (days). Drives due/overdue math.</li>
+<li><strong>P2:</strong> Presets (weekly / monthly / quarterly / yearly) + custom.</li>
+<li><strong>P3:</strong> Adaptive cadence suggestions based on actual meeting frequency.</li>
+</ul>
+<h3>F4. Auto mode — rank by due/overdue</h3>
+<ul>
+<li><strong>P1:</strong> Compute <code>nextDue = lastMet + cadence</code>; sort most-overdue first. Read-only ordering.</li>
+<li><strong>P2:</strong> Color/severity bands (overdue / due soon / on track); &quot;auto-rotate&quot; cycling highlight of the top item.</li>
+<li><strong>P3:</strong> Weight urgency by preference rank (a high-priority person due slightly is surfaced over a low-priority person very overdue).</li>
+</ul>
+<h3>F5. Manual preference mode</h3>
+<ul>
+<li><strong>P1:</strong> Separate, drag-sorted order stored independently from auto mode. Toggle between modes.</li>
+<li><strong>P2:</strong> Pin/favorite items to the top regardless of cadence.</li>
+<li><strong>P3:</strong> Multiple named custom views/orderings.</li>
+</ul>
+<h3>F6. Add items</h3>
+<ul>
+<li><strong>P1:</strong> Add a person/item with name + cadence.</li>
+<li><strong>P2:</strong> Inline edit of name/cadence; avatar/emoji.</li>
+<li><strong>P3:</strong> Import contacts; bulk add.</li>
+</ul>
+<h3>F7. Archive items</h3>
+<ul>
+<li><strong>P1:</strong> Soft-delete flag; archived items hidden from active lists but retained.</li>
+<li><strong>P2:</strong> Archive view + restore; archived items excluded from due math.</li>
+<li><strong>P3:</strong> Reason/snooze (&quot;archive until date&quot;).</li>
+</ul>
+<h3>F8. Permanent meeting history</h3>
+<ul>
+<li><strong>P1:</strong> Append-only array of meet-dates per item. Never overwritten. Viewable per item.</li>
+<li><strong>P2:</strong> Edit/delete a wrong entry (with confirm); export history as JSON/CSV.</li>
+<li><strong>P3:</strong> Timeline visualization; streaks and gaps.</li>
+</ul>
+<h3>F9. Reminders + sync</h3>
+<ul>
+<li><strong>P1:</strong> Global &quot;remind me X days before due&quot; setting + per-item override. Stored and shown in-app due-soon banner. No external delivery.</li>
+<li><strong>P2 — DONE (v1.1):</strong> Google Sheets backend. The Sheet is the human-editable DB (click-edit-autosave); the app reads/writes it as JSON via an Apps Script web app. One Sheet = many projects (one tab each). Works on all devices incl. Android → this is also real cross-device sync. See <code>backend/Code.gs</code> + <code>backend/DEPLOY.md</code>.</li>
+<li><strong>P2-next:</strong> Email reminders via an Apps Script daily time-trigger reading the same Sheet.</li>
+<li><strong>P3:</strong> True OS push (PWA + service worker + web-push sender) on Android + macOS.</li>
+</ul>
+<h3>F10. Project + bindings model (v1.2 target)</h3>
+<p>A <strong>project</strong> is a logical identity (e.g. <code>family</code>). A <strong>binding</strong> maps that project, <em>on this device</em>, to a storage target. Bindings are per-(device × project); the cloud binding is shared.</p>
+<ul>
+<li><strong>P1:</strong> Editable project name in-app (not only via <code>?project=</code> URL). Bindings already stored separately from data: file handle in IndexedDB (<code>file.&lt;project&gt;</code>), Sheet config in localStorage (<code>keepInTouch.sheet.&lt;project&gt;</code>), local cache in <code>keepInTouch.project.&lt;project&gt;</code>.</li>
+<li><strong>P2:</strong> Explicit bindings UI — see/add/remove this device&#39;s bindings for a project; pick which is active (Sheet = shared source of truth, file/local = per-device).</li>
+<li><strong>P3:</strong> Multiple cloud bindings; conflict resolution when two devices write the same Sheet.</li>
+</ul>
+<hr>
+<h2>Out of scope (current)</h2>
+<ul>
+<li>OS-level push notifications (F9-P3).</li>
+<li>Multi-device write-conflict resolution (F10-P3).</li>
+</ul>
+<h2>Migration notes</h2>
+<ul>
+<li>Schema is versioned (<code>schemaVersion</code>) for clean migration.</li>
+<li>Backend delivered: Google Sheets + Apps Script web app. Free, private to the user&#39;s Drive, directly editable.</li>
+</ul>
+
+
+</main>
+<script>
+  /* embedded source mtime (epoch ms) for staleness check is informational here;
+     real staleness is detected at generation time. Theme toggle below. */
+  var segBtns=document.querySelectorAll('.seg button');
+  function reflect(){var s=null;try{s=localStorage.getItem('theme');}catch(e){}var m=s==='dark'?'dark':s==='light'?'light':'system';
+    segBtns.forEach(function(b){b.setAttribute('aria-checked',b.dataset.mode===m?'true':'false');});}
+  function apply(m){try{if(m==='system')localStorage.removeItem('theme');else localStorage.setItem('theme',m);
+    var d=localStorage.getItem('theme')==='dark'||(!localStorage.getItem('theme')&&matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.setAttribute('data-theme',d?'dark':'light');}catch(e){}reflect();}
+  segBtns.forEach(function(b){b.addEventListener('click',function(){apply(b.dataset.mode);});});
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change',function(e){
+    try{if(localStorage.getItem('theme'))return;}catch(_){}
+    document.documentElement.setAttribute('data-theme',e.matches?'dark':'light');});
+  reflect();
+</script>
+</body>
+</html>

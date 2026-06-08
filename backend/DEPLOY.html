@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f7f6f4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121316" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛠️</text></svg>">
+<title>Keep In Touch — Deploy</title>
+<script>
+  /* FOUC: re-resolve theme on load — carries over from the hub via shared file:// localStorage (Chrome/Arc); falls back to OS theme (Safari). */
+  (function(){try{var s=localStorage.getItem('theme');var d=s==='dark'||(s!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-theme',d?'dark':'light');}catch(e){}})();
+</script>
+<style>
+  :root{ color-scheme:light dark;
+    --bg:#f7f6f4;--surface:#ffffff;--surface-2:#f0eee9;--text:#1d1c1a;--text-dim:#6b6862;--line:#e2ded6;
+    --brand:#2f6df0;--brand-ink:#1b4fc4;--brand-wash:#e8f0fe;--maxw:820px;--mono:ui-monospace,"SF Mono",Menlo,monospace;}
+  @media (prefers-color-scheme: dark){:root{
+    --bg:#121316;--surface:#1b1d22;--surface-2:#23262d;--text:#ecebe8;--text-dim:#9a988f;--line:#2e313a;
+    --brand:#6c9bff;--brand-ink:#9fbcff;--brand-wash:#1c2740;}}
+  html[data-theme="light"]{color-scheme:light;
+    --bg:#f7f6f4;--surface:#ffffff;--surface-2:#f0eee9;--text:#1d1c1a;--text-dim:#6b6862;--line:#e2ded6;
+    --brand:#2f6df0;--brand-ink:#1b4fc4;--brand-wash:#e8f0fe;}
+  html[data-theme="dark"]{color-scheme:dark;
+    --bg:#121316;--surface:#1b1d22;--surface-2:#23262d;--text:#ecebe8;--text-dim:#9a988f;--line:#2e313a;
+    --brand:#6c9bff;--brand-ink:#9fbcff;--brand-wash:#1c2740;}
+  *{box-sizing:border-box;}
+  html{font-size:100%;}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:1rem/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;transition:background .3s,color .3s;}
+  .bar{position:sticky;top:0;z-index:10;backdrop-filter:blur(12px);background:color-mix(in srgb,var(--bg) 82%,transparent);
+    border-bottom:1px solid var(--line);display:flex;align-items:center;gap:1rem;padding:.7rem 1.2rem;}
+  .bar a.home{ text-decoration:none;color:var(--brand-ink);font-weight:700;font-size:.95rem;}
+  .bar .t{font-weight:700;}
+  .bar .sp{flex:1;}
+  .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:2px;gap:2px;}
+  .seg button{border:0;background:transparent;color:var(--text-dim);cursor:pointer;font:inherit;font-size:.8rem;font-weight:600;padding:.3rem .55rem;border-radius:999px;}
+  .seg button[aria-checked="true"]{background:var(--surface);color:var(--text);}
+  main{max-width:var(--maxw);margin:0 auto;padding:2rem 1.3rem 4rem;}
+  .stale{display:none;background:var(--brand-wash);border:1px solid color-mix(in srgb,var(--brand) 35%,transparent);
+    color:var(--brand-ink);border-radius:10px;padding:.6rem .9rem;font-size:.85rem;margin-bottom:1.4rem;}
+  .src{font-size:.8rem;color:var(--text-dim);margin-bottom:1.4rem;}
+  .src code{font-family:var(--mono);background:var(--surface-2);padding:.1rem .4rem;border-radius:5px;}
+  h1,h2,h3{letter-spacing:-.02em;line-height:1.2;}
+  h1{font-size:2rem;margin:.2rem 0 1rem;} h2{font-size:1.45rem;margin:2rem 0 .8rem;padding-top:.6rem;border-top:1px solid var(--line);}
+  h3{font-size:1.15rem;margin:1.4rem 0 .5rem;}
+  a{color:var(--brand-ink);}
+  code{font-family:var(--mono);background:var(--surface-2);padding:.12rem .4rem;border-radius:6px;font-size:.88em;}
+  pre{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:1rem;overflow:auto;}
+  pre code{background:none;padding:0;font-size:.85rem;}
+  blockquote{border-left:3px solid var(--brand);margin:1rem 0;padding:.3rem 0 .3rem 1rem;color:var(--text-dim);}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem;}
+  th,td{border:1px solid var(--line);padding:.5rem .7rem;text-align:left;vertical-align:top;}
+  th{background:var(--surface-2);}
+  hr{border:0;border-top:1px solid var(--line);margin:2rem 0;}
+  img{max-width:100%;}
+</style>
+</head>
+<body>
+<div class="bar">
+  <a class="home" href="README.html">← Keep In Touch</a>
+  <span class="t">🛠️ Deploy</span>
+  <span class="sp"></span>
+  <div class="seg" role="radiogroup" aria-label="Color theme">
+    <button role="radio" aria-checked="false" data-mode="system" title="Follow system">🖥</button>
+    <button role="radio" aria-checked="true"  data-mode="light"  title="Light">☀️</button>
+    <button role="radio" aria-checked="false" data-mode="dark"   title="Dark">🌙</button>
+  </div>
+</div>
+<main>
+  <div class="stale" id="stale">⚠️ This page was generated from <code>backend/DEPLOY.md</code>; the source has changed since. Re-run <code>gen-doc-pages.mjs</code> to refresh.</div>
+  <div class="src">Generated from <code>backend/DEPLOY.md</code> · source updated 2026-06-08 01:14 UTC · this HTML is a generated artifact — edit the <code>.md</code>, not this file.</div>
+  <h1>Backend deploy — Google Sheets + Apps Script (one-time, ~5 min)</h1>
+<p>This is the only part I can&#39;t do for you: it runs under <strong>your</strong> Google account. Once deployed, the renderer talks to your private Sheet and the Sheet stays your human-editable database.</p>
+<hr>
+<h2>⚡ ALREADY DEPLOYED? Re-deploy to turn the daily email back on (~2 min, 4 clicks)</h2>
+<blockquote>
+<p><strong>Why:</strong> the current <code>Code.gs</code> fixes a bug that broke the daily-reminder email for
+anyone with logged meetings (it threw and silently skipped your tabs). Your live app
+already works without this — it&#39;s <strong>only</strong> the email digest that needs the redeploy.
+Your Sheet, your data, and the Web-app URL are all unchanged by this.</p>
+</blockquote>
+<p><strong>Fastest path — one command (clasp):</strong> if you have the Apps Script <strong>Script ID</strong>
+(script editor → ⚙ Project Settings → &quot;Script ID&quot;), just run:</p>
+<pre><code class="language-bash">bash backend/deploy-via-clasp.sh &lt;SCRIPT_ID&gt;
+</code></pre>
+<p>It pushes the current <code>Code.gs</code> and updates your existing web-app deployment <strong>in place</strong>
+(same <code>/exec</code> URL). <code>clasp</code> is already installed + authenticated on this machine. The
+<code>.clasp.json</code> it writes (holding your Script ID) is gitignored — it never leaves your disk.
+Then do step 4 below once (the email trigger). — <em>Prefer this; the 4-click flow is the manual fallback.</em></p>
+<p><strong>Manual fallback (4 clicks):</strong></p>
+<ol>
+<li>Open your Sheet → <strong>Extensions → Apps Script</strong>.</li>
+<li>Select-all in the editor, delete, and paste the entire current <code>Code.gs</code> (next to this file).</li>
+<li><strong>Deploy → Manage deployments → ✏️ (edit) → Version: <em>New version</em> → Deploy.</strong> (URL stays the same.)</li>
+<li>Run the <strong><code>installDailyReminder</code></strong> function once (Run menu / function dropdown) and approve the email permission.</li>
+</ol>
+<p>Done — you&#39;ll get the morning digest again. (First set your timezone if you never have: <strong>Project Settings → Time zone</strong>.) Everything below is the full first-time setup, for reference.</p>
+<hr>
+<h2>What you&#39;ll end up with</h2>
+<ul>
+<li>A <strong>Google Sheet</strong> (your private DB) — open it, click any cell, edit, autosaves.</li>
+<li>An <strong>Apps Script web app</strong> behind a secret URL that the app reads/writes as JSON.</li>
+<li>One Sheet holds <strong>all projects</strong> — each project is its own tab (e.g. <code>work</code>, <code>family</code>).</li>
+</ul>
+<h2>Steps</h2>
+<ol>
+<li><p><strong>Create the Sheet</strong></p>
+<ul>
+<li>Go to <a href="https://sheets.new">https://sheets.new</a>. Name it e.g. <em>Keep In Touch DB</em>.</li>
+<li>Leave it empty — the script creates a tab per project automatically.</li>
+</ul>
+</li>
+<li><p><strong>Open the script editor</strong></p>
+<ul>
+<li>In the Sheet: <strong>Extensions → Apps Script</strong>.</li>
+</ul>
+</li>
+<li><p><strong>Paste the code</strong></p>
+<ul>
+<li>Delete the stub <code>myFunction</code>, paste the entire contents of <code>Code.gs</code> (next to this file).</li>
+<li>(Optional, recommended) set <code>var SHARED_TOKEN = &quot;some-long-random-string&quot;;</code> for an extra layer beyond the secret URL. Remember it — you&#39;ll give it to the app.</li>
+<li>Click 💾 Save.</li>
+</ul>
+</li>
+<li><p><strong>Deploy as a web app</strong></p>
+<ul>
+<li><strong>Deploy → New deployment</strong>.</li>
+<li>Gear ⚙ next to &quot;Select type&quot; → <strong>Web app</strong>.</li>
+<li><strong>Execute as:</strong> <em>Me</em>.</li>
+<li><strong>Who has access:</strong> <em>Anyone</em>. (Required so the app can call it without a Google login. The URL is the secret.)</li>
+<li><strong>Deploy</strong>. Approve the permissions prompt (it&#39;s your own script touching your own Sheet).</li>
+<li><strong>Copy the Web app URL</strong> — looks like <code>https://script.google.com/macros/s/AKfy…/exec</code>.</li>
+</ul>
+</li>
+<li><p><strong>Connect the app</strong></p>
+<ul>
+<li>Open <code>index.html?project=work</code> (or any project).</li>
+<li>⚙ Settings → <strong>Google Sheet backend</strong> → paste the Web app URL (+ token if you set one) → <strong>Connect</strong>.</li>
+<li>The app pulls from the Sheet and from then on autosaves every change back to it.</li>
+</ul>
+</li>
+</ol>
+<h2>Daily email reminders (optional)</h2>
+<p>Get a once-a-day email listing who&#39;s due or overdue — across <strong>all</strong> your project tabs — even when every device is closed. This runs server-side on Google&#39;s schedule; no Web Push, works on iPhone/Android/desktop alike.</p>
+<ol>
+<li><strong>Set the timezone first.</strong> In the script editor: <strong>File → Project Settings → Time zone</strong> → set it to yours. (The pasted-in script has no committed timezone, so it defaults to the project creator&#39;s locale; the daily send hour and &quot;due today&quot; math use this.)</li>
+<li><strong>Install the trigger.</strong> In the editor&#39;s <strong>Run</strong> menu (or the function dropdown), select <strong><code>installDailyReminder</code></strong> and Run. Approve the <strong>send email</strong> (MailApp) permission when prompted — if you decline, no emails are sent and an error is logged.</li>
+<li>That&#39;s it — you&#39;ll get a digest each morning (default <strong>8 AM</strong>) at your Google account&#39;s email.</li>
+</ol>
+<p><strong>Tuning (optional), via Project Settings → Script Properties:</strong></p>
+<ul>
+<li><code>reminderHour</code> — 0–23, default <code>8</code>. <strong>Re-run <code>installDailyReminder</code> after changing</strong> (a time trigger&#39;s schedule can&#39;t be edited in place).</li>
+<li><code>reminderRecipient</code> — send to a different address (default: your own).</li>
+<li><code>reminderEnabled</code> — set to <code>false</code> to pause without removing the trigger.</li>
+</ul>
+<p><strong>Stop entirely:</strong> run <strong><code>uninstallDailyReminder</code></strong> once.</p>
+<p><strong>Notes:</strong> the email is self-to-self — if it lands in Promotions/Spam, add a filter or mark it Important. The reminder path only <em>reads</em> your Sheet; it never writes, so it can&#39;t disturb your data. The &quot;remind X days before due&quot; lead time (Settings in the app) controls what counts as &quot;due soon&quot; in the email, exactly like the in-app banner.</p>
+<h2>Updating the script later</h2>
+<ul>
+<li>Edit the code, then <strong>Deploy → Manage deployments → ✏️ Edit → Version: New version → Deploy</strong>. The URL stays the same.</li>
+<li>If you added/changed reminder code, also re-run <code>installDailyReminder</code> once.</li>
+</ul>
+<blockquote>
+<p><strong>Backend update (recommended):</strong> paste the latest <code>Code.gs</code> and redeploy a new version (see the ⚡ quickstart at the top). The current script: (a) coerces meeting-history entries to plain <code>YYYY-MM-DD</code> on read/write (defensive against the <code>[object Object]</code> and &quot;Thu Apr 30 2026 … (Pacific Daylight Time)&quot; corruption classes — the app also guards these client-side); (b) adds <code>?action=projects</code> so a freshly-connected device can list the Sheet&#39;s existing project tabs; and (c) <strong>fixes the daily-reminder email</strong>, which previously threw on any contact with logged history and silently dropped that whole tab from the digest. Existing data and the URL are unaffected.</p>
+</blockquote>
+<h2>Security notes</h2>
+<ul>
+<li>The deployment URL is an unguessable secret. Anyone with it can read/write your Sheet → don&#39;t paste it in public places.</li>
+<li>For more safety, set <code>SHARED_TOKEN</code>; the app appends it as <code>?token=</code> and the script rejects calls without it.</li>
+<li>The Sheet itself stays private to your Google account; &quot;Anyone&quot; applies only to the script endpoint, not the document.</li>
+</ul>
+<h2>How the Sheet looks (each project tab)</h2>
+<table>
+<thead>
+<tr>
+<th>id</th>
+<th>name</th>
+<th>cadenceDays</th>
+<th>lastMet</th>
+<th>history</th>
+<th>remindDays</th>
+<th>archived</th>
+<th>rank</th>
+<th>snoozedUntil</th>
+<th>suggestDismissed</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>p_a</td>
+<td>Alex Rivera</td>
+<td>30</td>
+<td>2026-06-01</td>
+<td>2026-05-01, 2026-06-01</td>
+<td></td>
+<td>FALSE</td>
+<td>0</td>
+<td></td>
+<td></td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>Existing Sheets from before these columns were added keep working — the script appends <code>snoozedUntil</code> and <code>suggestDismissed</code> automatically on the next write. Blank cells mean &quot;not snoozed&quot; / &quot;no suggestion dismissed&quot;.</p>
+</blockquote>
+<ul>
+<li>Edit any cell directly in Sheets — the app picks it up on next load/sync.</li>
+<li><strong><code>history</code> is the source of truth</strong> and append-only. Add dates; don&#39;t delete past ones.</li>
+<li><code>lastMet</code> is auto-derived; you can ignore it (the script recomputes it).</li>
+</ul>
+
+
+</main>
+<script>
+  /* embedded source mtime (epoch ms) for staleness check is informational here;
+     real staleness is detected at generation time. Theme toggle below. */
+  var segBtns=document.querySelectorAll('.seg button');
+  function reflect(){var s=null;try{s=localStorage.getItem('theme');}catch(e){}var m=s==='dark'?'dark':s==='light'?'light':'system';
+    segBtns.forEach(function(b){b.setAttribute('aria-checked',b.dataset.mode===m?'true':'false');});}
+  function apply(m){try{if(m==='system')localStorage.removeItem('theme');else localStorage.setItem('theme',m);
+    var d=localStorage.getItem('theme')==='dark'||(!localStorage.getItem('theme')&&matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.setAttribute('data-theme',d?'dark':'light');}catch(e){}reflect();}
+  segBtns.forEach(function(b){b.addEventListener('click',function(){apply(b.dataset.mode);});});
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change',function(e){
+    try{if(localStorage.getItem('theme'))return;}catch(_){}
+    document.documentElement.setAttribute('data-theme',e.matches?'dark':'light');});
+  reflect();
+</script>
+</body>
+</html>

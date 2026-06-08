@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f7f6f4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121316" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌱</text></svg>">
+<title>Keep In Touch — README</title>
+<script>
+  /* FOUC: re-resolve theme on load — carries over from the hub via shared file:// localStorage (Chrome/Arc); falls back to OS theme (Safari). */
+  (function(){try{var s=localStorage.getItem('theme');var d=s==='dark'||(s!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-theme',d?'dark':'light');}catch(e){}})();
+</script>
+<style>
+  :root{ color-scheme:light dark;
+    --bg:#f7f6f4;--surface:#ffffff;--surface-2:#f0eee9;--text:#1d1c1a;--text-dim:#6b6862;--line:#e2ded6;
+    --brand:#2f6df0;--brand-ink:#1b4fc4;--brand-wash:#e8f0fe;--maxw:820px;--mono:ui-monospace,"SF Mono",Menlo,monospace;}
+  @media (prefers-color-scheme: dark){:root{
+    --bg:#121316;--surface:#1b1d22;--surface-2:#23262d;--text:#ecebe8;--text-dim:#9a988f;--line:#2e313a;
+    --brand:#6c9bff;--brand-ink:#9fbcff;--brand-wash:#1c2740;}}
+  html[data-theme="light"]{color-scheme:light;
+    --bg:#f7f6f4;--surface:#ffffff;--surface-2:#f0eee9;--text:#1d1c1a;--text-dim:#6b6862;--line:#e2ded6;
+    --brand:#2f6df0;--brand-ink:#1b4fc4;--brand-wash:#e8f0fe;}
+  html[data-theme="dark"]{color-scheme:dark;
+    --bg:#121316;--surface:#1b1d22;--surface-2:#23262d;--text:#ecebe8;--text-dim:#9a988f;--line:#2e313a;
+    --brand:#6c9bff;--brand-ink:#9fbcff;--brand-wash:#1c2740;}
+  *{box-sizing:border-box;}
+  html{font-size:100%;}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:1rem/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;transition:background .3s,color .3s;}
+  .bar{position:sticky;top:0;z-index:10;backdrop-filter:blur(12px);background:color-mix(in srgb,var(--bg) 82%,transparent);
+    border-bottom:1px solid var(--line);display:flex;align-items:center;gap:1rem;padding:.7rem 1.2rem;}
+  .bar a.home{ text-decoration:none;color:var(--brand-ink);font-weight:700;font-size:.95rem;}
+  .bar .t{font-weight:700;}
+  .bar .sp{flex:1;}
+  .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:2px;gap:2px;}
+  .seg button{border:0;background:transparent;color:var(--text-dim);cursor:pointer;font:inherit;font-size:.8rem;font-weight:600;padding:.3rem .55rem;border-radius:999px;}
+  .seg button[aria-checked="true"]{background:var(--surface);color:var(--text);}
+  main{max-width:var(--maxw);margin:0 auto;padding:2rem 1.3rem 4rem;}
+  .stale{display:none;background:var(--brand-wash);border:1px solid color-mix(in srgb,var(--brand) 35%,transparent);
+    color:var(--brand-ink);border-radius:10px;padding:.6rem .9rem;font-size:.85rem;margin-bottom:1.4rem;}
+  .src{font-size:.8rem;color:var(--text-dim);margin-bottom:1.4rem;}
+  .src code{font-family:var(--mono);background:var(--surface-2);padding:.1rem .4rem;border-radius:5px;}
+  h1,h2,h3{letter-spacing:-.02em;line-height:1.2;}
+  h1{font-size:2rem;margin:.2rem 0 1rem;} h2{font-size:1.45rem;margin:2rem 0 .8rem;padding-top:.6rem;border-top:1px solid var(--line);}
+  h3{font-size:1.15rem;margin:1.4rem 0 .5rem;}
+  a{color:var(--brand-ink);}
+  code{font-family:var(--mono);background:var(--surface-2);padding:.12rem .4rem;border-radius:6px;font-size:.88em;}
+  pre{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:1rem;overflow:auto;}
+  pre code{background:none;padding:0;font-size:.85rem;}
+  blockquote{border-left:3px solid var(--brand);margin:1rem 0;padding:.3rem 0 .3rem 1rem;color:var(--text-dim);}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem;}
+  th,td{border:1px solid var(--line);padding:.5rem .7rem;text-align:left;vertical-align:top;}
+  th{background:var(--surface-2);}
+  hr{border:0;border-top:1px solid var(--line);margin:2rem 0;}
+  img{max-width:100%;}
+</style>
+</head>
+<body>
+<div class="bar">
+  <a class="home" href="README.html">← Keep In Touch</a>
+  <span class="t">🌱 README</span>
+  <span class="sp"></span>
+  <div class="seg" role="radiogroup" aria-label="Color theme">
+    <button role="radio" aria-checked="false" data-mode="system" title="Follow system">🖥</button>
+    <button role="radio" aria-checked="true"  data-mode="light"  title="Light">☀️</button>
+    <button role="radio" aria-checked="false" data-mode="dark"   title="Dark">🌙</button>
+  </div>
+</div>
+<main>
+  <div class="stale" id="stale">⚠️ This page was generated from <code>README.md</code>; the source has changed since. Re-run <code>gen-doc-pages.mjs</code> to refresh.</div>
+  <div class="src">Generated from <code>README.md</code> · source updated 2026-06-08 05:07 UTC · this HTML is a generated artifact — edit the <code>.md</code>, not this file.</div>
+  <h1>Keep In Touch 🌱</h1>
+<p>A personal <strong>&quot;stay in touch&quot; tracker</strong> — a ranked list of the people you care about, each with a
+cadence (&quot;meet every X days&quot;) and a permanent meeting log, that tells you <strong>who&#39;s due or overdue</strong>
+before you fall out of touch.</p>
+<p><strong>▶ Live app:</strong> <a href="https://awreccan.github.io/keep-in-touch/">https://awreccan.github.io/keep-in-touch/</a></p>
+<blockquote>
+<p>One file, no build step, works offline, and your data is <strong>yours</strong> — it lives in your own
+Google Sheet (or a local file), never on anyone else&#39;s server. The hosted URL is code only.</p>
+</blockquote>
+<hr>
+<h2>What it does</h2>
+<p>Add the people you want to keep up with, set how often you&#39;d like to see each of them, and tap
+<strong>✔ Met today</strong> whenever you do. The app continuously answers the one question that matters —
+<em>who have I been neglecting?</em> — and surfaces them, gently, without guilt.</p>
+<h3>The three views</h3>
+<ul>
+<li><strong>Auto · due / overdue</strong> — auto-ranks by urgency (never-met → most-overdue → soonest-due). Read-only.</li>
+<li><strong>My ranking</strong> — drag rows into your own preference order (touch-friendly), stored separately.</li>
+<li><strong>Grid rank</strong> — the same ranking in dense multi-column cards so a long list fits on one screen.</li>
+<li><strong>Garden 🌱</strong> — an affective view where each person is a plant whose health reflects how overdue they are (thriving → wilting). Tap a tile to act.</li>
+</ul>
+<h3>Day-to-day</h3>
+<ul>
+<li><strong>✔ Met today</strong> — one tap logs a meeting and resets the clock.</li>
+<li><strong>History</strong> — append-only, never lost. Log a meeting on any date; tag <em>how</em> you connected (☎️ call / ☕ coffee / 💬 text / 📹 video / 🤝 in person).</li>
+<li><strong>Reschedule…</strong> — push someone&#39;s next nudge out to a date without logging a meeting or hiding them.</li>
+<li><strong>Snooze / Archive</strong> — hide someone temporarily (with a reason) or for good, without losing their history.</li>
+</ul>
+<hr>
+<h2>The 13 features</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Feature</th>
+<th>What it gives you</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td><strong>One-tap reach-out</strong></td>
+<td><code>tel:</code> / <code>sms:</code> / <code>mailto:</code> chips on each card — go from &quot;due&quot; to actually reaching out in one tap</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Smart drift nudge</strong></td>
+<td>&quot;You usually see Alex ~every 30d — it&#39;s been 50&quot;</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Reconnection wins</strong></td>
+<td>Celebrates reconnecting with someone you&#39;d drifted from — never shames a lapse</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>Relationship-health glance</strong></td>
+<td>A calm status strip (overdue / due-soon / on-track) you can tap to filter</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>Talking points</strong></td>
+<td>A &quot;pick up next time&quot; note per person</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>Key dates</strong></td>
+<td>🎂 birthday / 💍 anniversary countdown chips</td>
+</tr>
+<tr>
+<td>7</td>
+<td><strong>Reschedule-from-today</strong></td>
+<td>Defer a person&#39;s next nudge without logging a meeting</td>
+</tr>
+<tr>
+<td>8</td>
+<td><strong>Per-meeting channel</strong></td>
+<td>Tag each meeting as call / coffee / text / video / in person</td>
+</tr>
+<tr>
+<td>9</td>
+<td><strong>Relationship tiers</strong></td>
+<td>Inner / Close / Orbit circles that preset a sensible cadence</td>
+</tr>
+<tr>
+<td>10</td>
+<td><strong>On-this-day</strong></td>
+<td>Resurfaces a meeting from a year ago today</td>
+</tr>
+<tr>
+<td>11</td>
+<td><strong>Monthly recap</strong></td>
+<td>A private, shareable &quot;this month in connection&quot; summary</td>
+</tr>
+<tr>
+<td>12</td>
+<td><strong>Garden view</strong></td>
+<td>The plant-health visualization described above</td>
+</tr>
+<tr>
+<td>—</td>
+<td><strong>Daily email digest</strong></td>
+<td>An optional morning email of who&#39;s due (via the Sheet backend)</td>
+</tr>
+</tbody></table>
+<p>Plus the foundation: drag-to-rank, per-person cadence, due/overdue math, add/edit/archive,
+permanent meeting history, light/dark theme, and offline support.</p>
+<hr>
+<h2>How it works (architecture)</h2>
+<p>Keep In Touch is a <strong>renderer, not a data owner.</strong> It holds no shared bucket of user data — each
+<em>project</em> supplies and owns its own.</p>
+<ul>
+<li><strong>Single <code>index.html</code></strong>, vanilla JS, no build step, installable as a PWA, works offline.</li>
+<li><strong>Projects</strong> = isolated lists via a <code>?project=NAME</code> URL param (e.g. <code>?project=family</code>). Default is <code>default</code>.</li>
+<li><strong>Your data lives in your storage</strong>, in priority order:<ol>
+<li><strong>Google Sheet</strong> (recommended) — the Sheet <em>is</em> your database: open it, click a cell, it autosaves; the app reads/writes it as JSON through a tiny Apps Script web app. One Sheet = many projects (one tab each). <strong>This is what syncs your phone ↔ computer.</strong></li>
+<li><strong>Connected local file</strong> (desktop) — bind to a <code>.json</code> you choose via the File System Access API; edits write straight to disk.</li>
+<li><strong>Namespaced <code>localStorage</code></strong> (fallback / offline cache).</li>
+</ol>
+</li>
+<li><strong>Updating the app never loses data</strong> — data is keyed by origin + project, not by the HTML.</li>
+<li><strong>Privacy:</strong> the public GitHub Pages URL is <em>code only</em>. Your contacts never leave your Google account / device.</li>
+</ul>
+<h3>Platforms</h3>
+<ul>
+<li><strong>Desktop (Arc/Chrome/Edge):</strong> full experience incl. direct file binding.</li>
+<li><strong>Android Chrome:</strong> full app incl. touch drag-to-rank; syncs via the Google Sheet backend.</li>
+</ul>
+<hr>
+<h2>Documentation</h2>
+<table>
+<thead>
+<tr>
+<th>Read this</th>
+<th>For</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong><a href="HOWTO.md">HOWTO.md</a></strong></td>
+<td>How to use the app day-to-day, projects, where data lives</td>
+</tr>
+<tr>
+<td><strong><a href="PLAN.md">PLAN.md</a></strong></td>
+<td>The vision and original feature design (F1–F10)</td>
+</tr>
+<tr>
+<td><strong><a href="CHANGELOG.md">CHANGELOG.md</a></strong></td>
+<td>Every version and what shipped in it — the fullest build narrative</td>
+</tr>
+<tr>
+<td><strong><a href="backend/DEPLOY.md">backend/DEPLOY.md</a></strong></td>
+<td>Set up / redeploy the Google Sheet + Apps Script backend</td>
+</tr>
+</tbody></table>
+<h2>Backend setup (for cross-device sync + email)</h2>
+<p>The Sheet backend is optional but recommended (it&#39;s what enables phone ↔ computer sync and the
+daily email digest). One-time setup — create a Sheet, paste <code>backend/Code.gs</code> into its Apps Script
+editor, deploy as a web app, paste the URL into the app&#39;s Settings. Full steps in
+<strong><a href="backend/DEPLOY.md">backend/DEPLOY.md</a></strong>.</p>
+<hr>
+<h2>Tech</h2>
+<p>Vanilla HTML/CSS/JS · PWA (service worker + manifest) · Google Apps Script backend · GitHub Pages
+hosting. No framework, no build, no tracking.</p>
+
+
+</main>
+<script>
+  /* embedded source mtime (epoch ms) for staleness check is informational here;
+     real staleness is detected at generation time. Theme toggle below. */
+  var segBtns=document.querySelectorAll('.seg button');
+  function reflect(){var s=null;try{s=localStorage.getItem('theme');}catch(e){}var m=s==='dark'?'dark':s==='light'?'light':'system';
+    segBtns.forEach(function(b){b.setAttribute('aria-checked',b.dataset.mode===m?'true':'false');});}
+  function apply(m){try{if(m==='system')localStorage.removeItem('theme');else localStorage.setItem('theme',m);
+    var d=localStorage.getItem('theme')==='dark'||(!localStorage.getItem('theme')&&matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.setAttribute('data-theme',d?'dark':'light');}catch(e){}reflect();}
+  segBtns.forEach(function(b){b.addEventListener('click',function(){apply(b.dataset.mode);});});
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change',function(e){
+    try{if(localStorage.getItem('theme'))return;}catch(_){}
+    document.documentElement.setAttribute('data-theme',e.matches?'dark':'light');});
+  reflect();
+</script>
+</body>
+</html>
