@@ -2,6 +2,25 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.41.0 — 2026-06-07
+
+**Backend deployed → full roadmap complete (13/13).** The Apps Script backend was upgraded
+to the 14-column schema (notes / tier / keyDates / cadenceAnchor + per-meeting channel in
+the notes JSON), with the live web-app deployment updated in place (same `/exec` URL). A
+read→write→read migration of the live 10-column sheet was proven lossless before deploy
+(14/14), and a live POST→GET round-trip confirmed every field survives.
+
+- **#7 Reschedule-from-today** — a "Reschedule…" action sets a synced `cadenceAnchor` that
+  pushes the next nudge out to a chosen date *without* logging a meeting or hiding the person.
+  Defer-only (a past anchor is ignored); clears automatically when you next log a meeting.
+  Syncs across devices.
+- **#8 Channel tag is now synced** — the per-meeting channel (call/coffee/text/video/
+  in-person) rides the history entry to the Sheet instead of staying device-local; existing
+  device-local tags still display as a fallback.
+- **Daily email (F9)** — the backend digest is deployed and verified; it activates once the
+  one-time `installDailyReminder` is run in the Apps Script editor (grants the send-mail
+  permission).
+
 ## v1.40.0 — 2026-06-07
 
 - **Per-meeting channel tag (roadmap #8).** In a person's history, tag how you connected —

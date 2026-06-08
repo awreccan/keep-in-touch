@@ -24,7 +24,11 @@
  */
 
 var SHARED_TOKEN = ""; // optional; if set, renderer must send ?token=...
-var HEADERS = ["id", "name", "cadenceDays", "lastMet", "history", "remindDays", "archived", "rank", "snoozedUntil", "suggestDismissed", "notes"];
+// Columns 0-10 are the original schema. Columns 11-13 (tier, keyDates, cadenceAnchor)
+// are APPENDED for roadmap features #9/#6/#7 — appended (not inserted) so a Sheet still
+// on the 11-column layout reads back fine (trailing cells are simply absent/blank).
+// Per-meeting channel (#8) rides INSIDE the existing notes-JSON value, no new column.
+var HEADERS = ["id", "name", "cadenceDays", "lastMet", "history", "remindDays", "archived", "rank", "snoozedUntil", "suggestDismissed", "notes", "tier", "keyDates", "cadenceAnchor"];
 
 function doGet(e) {
   return handle(e, "GET");
@@ -97,10 +101,22 @@ function readState(sheet, project) {
     var historyRaw = cellToText(row[4]);
     var dates = historyRaw ? historyRaw.split(/[,\s]+/).map(cellToText).filter(String) : [];
     dates.sort();
-    // notes column (10) holds a JSON map {date: note}; reattach as {date, note?} objects
+    // notes column (10) holds a JSON map {date: value}; value is either a note STRING
+    // (original form) or an object {note?, ch?} (v1.37+, ch = per-meeting channel #8).
+    // Reattach as {date, note?, ch?} objects, tolerant of both forms.
     var notesMap = {};
     try { var nm = JSON.parse(String(row[10] || "").trim() || "{}"); if (nm && typeof nm === "object") notesMap = nm; } catch (e) {}
-    var history = dates.map(function (d) { return notesMap[d] ? { date: d, note: String(notesMap[d]) } : { date: d }; });
+    var history = dates.map(function (d) {
+      var v = notesMap[d];
+      if (v == null) return { date: d };
+      if (typeof v === "object") {
+        var o = { date: d };
+        if (v.note) o.note = String(v.note);
+        if (v.ch) o.ch = String(v.ch);
+        return o;
+      }
+      return { date: d, note: String(v) };   // legacy string note
+    });
     var item = {
       id: id,
       name: name,
@@ -113,6 +129,13 @@ function readState(sheet, project) {
     if (snoozedUntil) item.snoozedUntil = snoozedUntil;   // optional; absent if blank
     var sd = row[9] === "" || row[9] === null || row[9] === undefined ? null : parseInt(row[9], 10);
     if (sd != null && !isNaN(sd)) item.suggestDismissed = sd;   // cadence value the user rejected
+    // Appended columns (absent on old 11-col sheets → undefined → skipped):
+    var tier = cellToText(row[11]);                       // #9 relationship tier label
+    if (tier) item.tier = tier;
+    var keyDatesRaw = String(row[12] == null ? "" : row[12]).trim();   // #6 JSON {birthday,...}
+    if (keyDatesRaw) { try { var kd = JSON.parse(keyDatesRaw); if (kd && typeof kd === "object") item.keyDates = kd; } catch (e) {} }
+    var anchor = cellToText(row[13]);                     // #7 explicit next-due anchor date
+    if (anchor) item.cadenceAnchor = anchor;
     items[id] = item;
     var rank = row[7] === "" || row[7] === null ? null : parseInt(row[7], 10);
     if (rank !== null && !isNaN(rank)) ranked.push({ id: id, rank: rank });
@@ -145,9 +168,19 @@ function writeState(sheet, state) {
     // column as a JSON map {date: note} so notes round-trip across devices.
     var entries = (it.history || []);
     var history = entries.map(histDateOf).filter(String).sort();
+    // notes value: keep the legacy STRING form when only a note exists (compact +
+    // back-compatible); use {note?,ch?} object only when a channel (#8) is present.
     var notesMap = {};
     entries.forEach(function (e) {
-      if (e && typeof e === "object" && e.date && e.note) notesMap[e.date] = String(e.note);
+      if (!e || typeof e !== "object" || !e.date) return;
+      if (e.ch) {
+        var o = {};
+        if (e.note) o.note = String(e.note);
+        o.ch = String(e.ch);
+        notesMap[e.date] = o;
+      } else if (e.note) {
+        notesMap[e.date] = String(e.note);
+      }
     });
     var notesCell = Object.keys(notesMap).length ? JSON.stringify(notesMap) : "";
     var lastMet = history.length ? history[history.length - 1] : "";
@@ -163,7 +196,10 @@ function writeState(sheet, state) {
       rank === -1 ? "" : rank,
       it.snoozedUntil || "",
       it.suggestDismissed == null ? "" : it.suggestDismissed,
-      notesCell
+      notesCell,
+      it.tier || "",                                                  // #9
+      (it.keyDates && Object.keys(it.keyDates).length) ? JSON.stringify(it.keyDates) : "",  // #6
+      it.cadenceAnchor || ""                                          // #7
     ]);
   });
   sheet.clearContents();

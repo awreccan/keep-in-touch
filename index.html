@@ -686,6 +686,29 @@
   </div>
 </div>
 
+<!-- Reschedule modal (#7): push next-due out without hiding the person -->
+<div class="modal-backdrop" id="reschedModal">
+  <div class="modal">
+    <h2 id="reschedTitle">Reschedule</h2>
+    <div class="hint">Push the next nudge out to a date — without logging a meeting or hiding them. They stay visible; the due-clock just resumes from this date. Clears automatically once you log a meeting.</div>
+    <div class="row2">
+      <button class="btn" data-resched="1w">1 week</button>
+      <button class="btn" data-resched="2w">2 weeks</button>
+      <button class="btn" data-resched="1m">1 month</button>
+    </div>
+    <label class="fld">Next nudge on
+      <input type="date" id="rs_date">
+    </label>
+    <div class="modal-actions" style="justify-content:space-between">
+      <button class="btn" id="rs_clear">Clear</button>
+      <span>
+        <button class="btn" id="reschedCancel">Cancel</button>
+        <button class="btn primary" id="rs_apply">Reschedule</button>
+      </span>
+    </div>
+  </div>
+</div>
+
 <!-- Settings modal -->
 <div class="modal-backdrop" id="recapModal">
   <div class="modal">
@@ -787,10 +810,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.40.0";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.41.0";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.40.0: roadmap #8 — per-meeting channel tag (call/coffee/text/video/in-person), device-local & sync-safe)
+   Keep In Touch — renderer (v1.41.0: backend deployed (14-col) — #7 reschedule-from-today + #8 channel tag now SYNCED; full 13/13 roadmap)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -953,7 +976,10 @@ function setSheetCfg(cfg) {
 // steady-state load only because unionStates OVERLAYS remote scalars on top of the
 // local item (it does not replace it) and clears each only when its remote parent
 // scalar is gone — see the preferRemoteScalars branch in unionStates.
-const SCALAR_FIELDS = ["name", "cadenceDays", "remindDays", "archived", "snoozedUntil", "suggestDismissed"];
+// cadenceAnchor (#7 reschedule-from-today) is a synced scalar — the backend (deployed
+// 2026-06-07, 14-col schema) persists it, and it follows the same usually-absent path as
+// snoozedUntil, so the v1.28 dirty/overlay logic handles it without perpetual-dirty.
+const SCALAR_FIELDS = ["name", "cadenceDays", "remindDays", "archived", "snoozedUntil", "suggestDismissed", "cadenceAnchor"];
 
 /* ---------- reach-out contact info (roadmap v2 #1) ----------
    Phone/email live in a SEPARATE per-project localStorage map keyed by person id —
@@ -1069,12 +1095,26 @@ function loadChannels() {
   try { const m = JSON.parse(localStorage.getItem(channelsKey()) || "{}"); return (m && typeof m === "object") ? m : {}; }
   catch (e) { return {}; }
 }
-function channelFor(id, date) { return loadChannels()[id + "|" + date] || ""; }
+// #8 channel tag — now SYNCED: stored as `ch` on the history entry itself (rides the
+// backend notes-JSON, deployed 2026-06-07). Falls back to the legacy device-local map so
+// any tags set before the upgrade still display until that meeting is re-tagged.
+function histEntry(id, date) {
+  const it = state.items[id]; if (!it) return null;
+  return (it.history || []).find(h => h && typeof h === "object" && h.date === date) || null;
+}
+function channelFor(id, date) {
+  const e = histEntry(id, date);
+  if (e && e.ch && CHANNELS.some(c => c.key === e.ch)) return e.ch;
+  return loadChannels()[id + "|" + date] || "";   // legacy device-local fallback
+}
 function setChannel(id, date, chKey) {
-  const m = loadChannels();
-  const k = id + "|" + date;
-  if (CHANNELS.some(c => c.key === chKey)) m[k] = chKey; else delete m[k];
-  try { localStorage.setItem(channelsKey(), JSON.stringify(m)); } catch (err) { console.warn("channels save failed", err); }
+  const e = histEntry(id, date);
+  const valid = CHANNELS.some(c => c.key === chKey);
+  if (e) { if (valid) e.ch = chKey; else delete e.ch; }   // primary: synced on the entry
+  // also clear any legacy device-local value for this key so it can't shadow the synced one
+  const m = loadChannels(); const k = id + "|" + date;
+  if (m[k]) { delete m[k]; try { localStorage.setItem(channelsKey(), JSON.stringify(m)); } catch (err) {} }
+  save();
 }
 function channelMeta(chKey) { return CHANNELS.find(c => c.key === chKey) || null; }
 
@@ -1382,6 +1422,8 @@ function mergeState(raw) {
     // archivedAt is local-only + rendered into the card meta — validate it the same
     // way so a malformed/poisoned value can neither inject markup nor display garbage.
     if (it.archivedAt != null && !isRealDate(String(it.archivedAt))) delete it.archivedAt;
+    // cadenceAnchor (#7) is a synced YYYY-MM-DD; drop anything that isn't a real date.
+    if (it.cadenceAnchor != null && !isRealDate(String(it.cadenceAnchor))) delete it.cadenceAnchor;
     // COERCE numeric scalars to real numbers on ingest. cadenceDays/remindDays/
     // suggestDismissed render unescaped into card-meta innerHTML (`every ${cadenceDays}d`),
     // so a crafted JSON/paste import with markup in those fields would be an XSS sink.
@@ -1933,9 +1975,16 @@ function humanizeRelative(dateISO) {
   return yrs === 1 ? "1 year ago" : yrs + " years ago";
 }
 function nextDue(item) {
+  // #7 reschedule-from-today: an explicit cadenceAnchor (synced) pushes the next-due date
+  // out without altering history or cadence. Honored only while it's in the future AND later
+  // than the normal last-met+cadence date, so it can defer but never pull a due-date earlier.
   const lm = lastMet(item);
-  if (!lm) return null;
-  return new Date(parseISO(lm).getTime() + item.cadenceDays * MS_DAY);
+  const base = lm ? new Date(parseISO(lm).getTime() + item.cadenceDays * MS_DAY) : null;
+  if (item.cadenceAnchor && isRealDate(item.cadenceAnchor)) {
+    const anchor = parseISO(item.cadenceAnchor);
+    if (anchor && (!base || anchor.getTime() > base.getTime())) return anchor;
+  }
+  return base;
 }
 function daysUntilDue(item) {
   const nd = nextDue(item);
@@ -2332,7 +2381,7 @@ function render() {
           <div class="card-meta">
             Every ${item.cadenceDays}d ·
             ${lm ? (channelMeta(channelFor(item.id, lm)) ? channelMeta(channelFor(item.id, lm)).emoji + " " : "") + "last met " + humanizeRelative(lm) + ' <span style="opacity:.7">(' + lm + ')</span>' : "no meetings logged"} ·
-            ${item.history.length} logged · remind ${remind}d before${item.archived ? (item.archivedAt ? " · archived " + escapeHtml(item.archivedAt) : " · archived") : ""}${snoozed && item.snoozeReason ? " · 💤 " + escapeHtml(item.snoozeReason) : ""}
+            ${item.history.length} logged · remind ${remind}d before${item.archived ? (item.archivedAt ? " · archived " + escapeHtml(item.archivedAt) : " · archived") : ""}${snoozed && item.snoozeReason ? " · 💤 " + escapeHtml(item.snoozeReason) : ""}${!snoozed && !item.archived && item.cadenceAnchor && isRealDate(item.cadenceAnchor) && item.cadenceAnchor >= todayISO() ? " · ⏭ rescheduled to " + escapeHtml(item.cadenceAnchor) : ""}
           </div>
           ${sug != null && sug !== (item.suggestDismissed != null ? item.suggestDismissed : null) ? `<div class="cadence-suggest" role="note">
             💡 You're meeting ~every ${sug}d, but cadence is ${item.cadenceDays}d.
@@ -2353,7 +2402,7 @@ function render() {
               ? '<button class="mini" data-act="unsnooze">Wake up</button>'
               : (item.archived
                   ? '<button class="mini" data-act="archive">Restore</button>'
-                  : '<button class="mini" data-act="snooze">Snooze…</button><button class="mini" data-act="archive">Archive</button>')}
+                  : '<button class="mini" data-act="resched">Reschedule…</button><button class="mini" data-act="snooze">Snooze…</button><button class="mini" data-act="archive">Archive</button>')}
           </div>
         </div>`;
     }
@@ -2479,7 +2528,7 @@ function clearExpiredSnoozes() {
 }
 // today + N days as a local-date YYYY-MM-DD (no UTC drift).
 function presetSnoozeDate(key) {
-  const n = key === "1w" ? 7 : key === "1m" ? 30 : 90;
+  const n = key === "1w" ? 7 : key === "2w" ? 14 : key === "1m" ? 30 : 90;
   const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + n);
   const z = x => String(x).padStart(2, "0");
   return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
@@ -2504,6 +2553,27 @@ function unsnooze(id) {
   const it = state.items[id]; if (!it) return;
   delete it.snoozedUntil; delete it.snoozeReason;
   save(); render(); closeModal("snoozeModal");
+}
+
+/* ---------- reschedule-from-today (#7): synced cadenceAnchor ---------- */
+let reschedId = null;
+function openResched(id) {
+  reschedId = id; const it = state.items[id];
+  document.getElementById("reschedTitle").textContent = "Reschedule · " + it.name;
+  document.getElementById("rs_date").value = it.cadenceAnchor || presetSnoozeDate("1w");
+  document.getElementById("rs_clear").style.display = it.cadenceAnchor ? "" : "none";
+  openModal("reschedModal");
+}
+function applyResched(id, dateISO) {
+  const it = state.items[id]; if (!it) return;
+  if (!isRealDate(dateISO) || dateISO < todayISO()) { alert("Pick today or a future date."); return; }
+  it.cadenceAnchor = dateISO;
+  save(); render(); closeModal("reschedModal");
+}
+function clearResched(id) {
+  const it = state.items[id]; if (!it) return;
+  delete it.cadenceAnchor;
+  save(); render(); closeModal("reschedModal");
 }
 
 /* ---------- archive / restore (F7) ---------- */
@@ -2627,6 +2697,10 @@ function logMeeting(id, dateISO, note) {
   if (existing) { if (n) existing.note = n; }
   else item.history.push(n ? { date: dateISO, note: n } : { date: dateISO });
   item.history.sort(byDateAsc);
+  // #7: logging a meeting fulfills any pending reschedule — clear the anchor so the
+  // normal last-met+cadence cycle resumes (a stale future anchor would otherwise keep
+  // suppressing the person past the meeting we just logged).
+  if (item.cadenceAnchor) delete item.cadenceAnchor;
   save(); render();
   if (overdueBy != null) showReconnectToast(item.name, overdueBy);
 }
@@ -2755,6 +2829,7 @@ document.getElementById("list").addEventListener("click", e => {
   else if (act === "edit" || act === "garden-open") openEdit(id);
   else if (act === "archive") { if (state.items[id].archived) restoreItem(id); else archiveItem(id); }
   else if (act === "snooze") openSnooze(id);
+  else if (act === "resched") openResched(id);
   else if (act === "unsnooze") unsnooze(id);
   else if (act === "sug-accept") acceptSuggestion(id, btn.dataset.sug);
   else if (act === "sug-dismiss") dismissSuggestion(id, btn.dataset.sug);
@@ -3112,7 +3187,7 @@ document.getElementById("h_add").onclick = () => {
   if (d) { editingHistDate = null; editingNoteDate = null; logMeeting(histId, d, note); document.getElementById("h_note").value = ""; renderHist(); }
 };
 document.getElementById("histList").addEventListener("click", e => {
-  // #8 channel chips: tap to set, tap the active one again to clear. Device-local.
+  // #8 channel chips: tap to set, tap the active one again to clear. Synced (rides history).
   const chBtn = e.target.closest("[data-ch]");
   if (chBtn) {
     const date = chBtn.dataset.chdate, ch = chBtn.dataset.ch;
@@ -3163,6 +3238,14 @@ document.querySelectorAll("#snoozeModal [data-snooze]").forEach(b => {
 document.getElementById("sz_apply").onclick = () => applySnooze(snoozeId, document.getElementById("sz_date").value);
 document.getElementById("sz_unsnooze").onclick = () => unsnooze(snoozeId);
 document.getElementById("snoozeCancel").onclick = () => closeModal("snoozeModal");
+
+/* reschedule (#7) */
+document.querySelectorAll("#reschedModal [data-resched]").forEach(b => {
+  b.onclick = () => { document.getElementById("rs_date").value = presetSnoozeDate(b.dataset.resched); };
+});
+document.getElementById("rs_apply").onclick = () => applyResched(reschedId, document.getElementById("rs_date").value);
+document.getElementById("rs_clear").onclick = () => clearResched(reschedId);
+document.getElementById("reschedCancel").onclick = () => closeModal("reschedModal");
 
 /* settings */
 document.getElementById("settingsBtn").onclick = () => {
