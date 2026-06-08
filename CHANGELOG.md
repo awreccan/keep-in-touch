@@ -2,6 +2,14 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.40.0 — 2026-06-07
+
+- **Per-meeting channel tag (roadmap #8).** In a person's history, tag how you connected —
+  ☎️ call / ☕ coffee / 💬 text / 📹 video / 🤝 in person — with a tap (tap again to clear). The most
+  recent meeting's channel shows as an emoji on the card. Stored device-locally
+  (`keepInTouch.channels.<project>`, keyed per meeting, kept out of the synced history — zero sync
+  risk); upgrades to the synced per-meeting `ch` field when the backend is deployed. 106/106 tests.
+
 ## v1.39.0 — 2026-06-07
 
 - **Gentler overdue list (roadmap #7, relief half).** When more than 5 people are overdue, Auto
