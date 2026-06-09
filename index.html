@@ -810,10 +810,10 @@
 <script>
 "use strict";
 
-const APP_VERSION = "1.41.1";   // kept in sync with the VERSION file by release.sh
+const APP_VERSION = "1.42.0";   // kept in sync with the VERSION file by release.sh
 
 /* =========================================================================
-   Keep In Touch — renderer (v1.41.1: backend manifest fix — add script.scriptapp scope so installDailyReminder (email F9) can create its trigger)
+   Keep In Touch — renderer (v1.42.0: sync phone/email (#1), talking points (#5), key dates (#6) and tier label (#9) through the Sheet — 17-col backend schema; one-time device-local→synced migration on load)
    ARCHITECTURE: this file is a RENDERER, not a data owner.
    - Each "project" (think: a user / a context) has its own isolated instance,
      selected by the ?project=<name> URL param (default = "default").
@@ -979,7 +979,12 @@ function setSheetCfg(cfg) {
 // cadenceAnchor (#7 reschedule-from-today) is a synced scalar — the backend (deployed
 // 2026-06-07, 14-col schema) persists it, and it follows the same usually-absent path as
 // snoozedUntil, so the v1.28 dirty/overlay logic handles it without perpetual-dirty.
-const SCALAR_FIELDS = ["name", "cadenceDays", "remindDays", "archived", "snoozedUntil", "suggestDismissed", "cadenceAnchor"];
+// phone/email (#1), thread (#5) and tier (#9) are now SYNCED string scalars too — the
+// backend persists them (17-col schema, 2026-06-09). They are usually-present strings,
+// so the same dirty/overlay path keeps them in step across devices. keyDates (#6) is a
+// synced OBJECT, not listed here — it rides the unionStates overlay (Object.assign of the
+// remote item) like history, so it syncs without scalar-diffing an object (key-order fragile).
+const SCALAR_FIELDS = ["name", "cadenceDays", "remindDays", "archived", "snoozedUntil", "suggestDismissed", "cadenceAnchor", "phone", "email", "thread", "tier"];
 
 /* ---------- reach-out contact info (roadmap v2 #1) ----------
    Phone/email live in a SEPARATE per-project localStorage map keyed by person id —
@@ -994,10 +999,21 @@ function loadContacts() {
   try { const m = JSON.parse(localStorage.getItem(contactsKey()) || "{}"); return (m && typeof m === "object") ? m : {}; }
   catch (e) { return {}; }
 }
-function contactFor(id) { return loadContacts()[id] || {}; }
+// Read prefers the SYNCED item fields (state.items[id].phone/email), falling back to the
+// legacy device-local map so contacts saved before the 2026-06-09 sync upgrade still show
+// until that person is next edited (which migrates them onto the item). (#1)
+function contactFor(id) {
+  const it = state.items && state.items[id];
+  if (it && (it.phone || it.email)) return { ...(it.phone ? { phone: it.phone } : {}), ...(it.email ? { email: it.email } : {}) };
+  return loadContacts()[id] || {};
+}
 function setContact(id, phone, email) {
-  const m = loadContacts();
   const p = (phone || "").trim(), e = (email || "").trim();
+  // Primary: write onto the synced item so it round-trips through the Sheet.
+  const it = state.items && state.items[id];
+  if (it) { if (p) it.phone = p; else delete it.phone; if (e) it.email = e; else delete it.email; }
+  // Also keep the device-local map in sync (offline cache + back-compat).
+  const m = loadContacts();
   if (!p && !e) delete m[id]; else m[id] = { ...(p ? { phone: p } : {}), ...(e ? { email: e } : {}) };
   try { localStorage.setItem(contactsKey(), JSON.stringify(m)); } catch (err) { console.warn("contacts save failed", err); }
 }
@@ -1015,10 +1031,18 @@ function loadThreads() {
   try { const m = JSON.parse(localStorage.getItem(threadsKey()) || "{}"); return (m && typeof m === "object") ? m : {}; }
   catch (e) { return {}; }
 }
-function threadFor(id) { return loadThreads()[id] || ""; }
+// Prefers the SYNCED item field (state.items[id].thread), falling back to the legacy
+// device-local map for pre-upgrade data. (#5)
+function threadFor(id) {
+  const it = state.items && state.items[id];
+  if (it && it.thread) return it.thread;
+  return loadThreads()[id] || "";
+}
 function setThread(id, text) {
-  const m = loadThreads();
   const t = (text || "").trim();
+  const it = state.items && state.items[id];
+  if (it) { if (t) it.thread = t; else delete it.thread; }   // primary: synced on the item
+  const m = loadThreads();
   if (!t) delete m[id]; else m[id] = t;
   try { localStorage.setItem(threadsKey(), JSON.stringify(m)); } catch (err) { console.warn("threads save failed", err); }
 }
@@ -1031,12 +1055,20 @@ function loadKeyDates() {
   try { const m = JSON.parse(localStorage.getItem(keyDatesKey()) || "{}"); return (m && typeof m === "object") ? m : {}; }
   catch (e) { return {}; }
 }
-function keyDatesFor(id) { return loadKeyDates()[id] || {}; }
+// Prefers the SYNCED item object (state.items[id].keyDates), falling back to the legacy
+// device-local map for pre-upgrade data. (#6)
+function keyDatesFor(id) {
+  const it = state.items && state.items[id];
+  if (it && it.keyDates && Object.keys(it.keyDates).length) return it.keyDates;
+  return loadKeyDates()[id] || {};
+}
 function setKeyDates(id, birthday, anniversary) {
-  const m = loadKeyDates();
   const o = {};
   if (isRealDate(birthday)) o.birthday = birthday;
   if (isRealDate(anniversary)) o.anniversary = anniversary;
+  const it = state.items && state.items[id];
+  if (it) { if (Object.keys(o).length) it.keyDates = o; else delete it.keyDates; }   // primary: synced on the item
+  const m = loadKeyDates();
   if (Object.keys(o).length) m[id] = o; else delete m[id];
   try { localStorage.setItem(keyDatesKey(), JSON.stringify(m)); } catch (err) { console.warn("keydates save failed", err); }
 }
@@ -1068,10 +1100,19 @@ function loadTiers() {
   try { const m = JSON.parse(localStorage.getItem(tiersKey()) || "{}"); return (m && typeof m === "object") ? m : {}; }
   catch (e) { return {}; }
 }
-function tierFor(id) { return loadTiers()[id] || ""; }
+// Prefers the SYNCED item field (state.items[id].tier), falling back to the legacy
+// device-local map for pre-upgrade data. (#9)
+function tierFor(id) {
+  const it = state.items && state.items[id];
+  if (it && it.tier) return it.tier;
+  return loadTiers()[id] || "";
+}
 function setTier(id, tierKey) {
+  const valid = TIERS.some(t => t.key === tierKey);
+  const it = state.items && state.items[id];
+  if (it) { if (valid) it.tier = tierKey; else delete it.tier; }   // primary: synced on the item
   const m = loadTiers();
-  if (TIERS.some(t => t.key === tierKey)) m[id] = tierKey; else delete m[id];
+  if (valid) m[id] = tierKey; else delete m[id];
   try { localStorage.setItem(tiersKey(), JSON.stringify(m)); } catch (err) { console.warn("tiers save failed", err); }
 }
 function tierBadge(id) {
@@ -1424,6 +1465,28 @@ function mergeState(raw) {
     if (it.archivedAt != null && !isRealDate(String(it.archivedAt))) delete it.archivedAt;
     // cadenceAnchor (#7) is a synced YYYY-MM-DD; drop anything that isn't a real date.
     if (it.cadenceAnchor != null && !isRealDate(String(it.cadenceAnchor))) delete it.cadenceAnchor;
+    // Synced reach-out + talking-point + tier fields (2026-06-09). Coerce to safe shapes on
+    // ingest so a poisoned Sheet cell / crafted import can't inject markup or garbage.
+    // phone/email/thread: strings, trimmed, length-capped (rendered via escapeHtml at the sink).
+    for (const f of ["phone", "email", "thread"]) {
+      if (it[f] != null) {
+        const v = String(it[f]).trim().slice(0, 300);
+        if (v) it[f] = v; else delete it[f];
+      }
+    }
+    // tier (#9): must be a known TIERS key, else drop (it drives a CSS class + label).
+    if (it.tier != null && !TIERS.some(t => t.key === it.tier)) delete it.tier;
+    // keyDates (#6): an object with birthday/anniversary YYYY-MM-DD; keep only real dates.
+    if (it.keyDates != null) {
+      if (typeof it.keyDates === "object" && !Array.isArray(it.keyDates)) {
+        const kd = {};
+        if (isRealDate(String(it.keyDates.birthday))) kd.birthday = it.keyDates.birthday;
+        if (isRealDate(String(it.keyDates.anniversary))) kd.anniversary = it.keyDates.anniversary;
+        if (Object.keys(kd).length) it.keyDates = kd; else delete it.keyDates;
+      } else {
+        delete it.keyDates;
+      }
+    }
     // COERCE numeric scalars to real numbers on ingest. cadenceDays/remindDays/
     // suggestDismissed render unescaped into card-meta innerHTML (`every ${cadenceDays}d`),
     // so a crafted JSON/paste import with markup in those fields would be an XSS sink.
@@ -1479,6 +1542,10 @@ function unionStates(local, remote, opts) {
       // survives and gets re-pushed, reverting a cross-device un-snooze/un-archive.
       const merged = structuredClone(out.items[id]);
       for (const f of SCALAR_FIELDS) { if (r[f] === undefined) delete merged[f]; }
+      // keyDates (#6) is a synced OBJECT (not a SCALAR_FIELD); clear it too when the
+      // authoritative remote omits it, so a date cleared on another device doesn't
+      // linger locally and get re-pushed (mirrors the scalar-clear reasoning above).
+      if (r.keyDates === undefined) delete merged.keyDates;
       Object.assign(merged, structuredClone(r), { history: mergedHistory });
       // Drop a device-local annotation once its remote PARENT scalar is gone, so it
       // can't outlive the state it describes (un-snoozed / un-archived elsewhere).
@@ -1515,6 +1582,35 @@ function loadFromLocal() {
     state = raw ? mergeState(raw) : structuredClone(DEFAULT_STATE);
   } catch (e) { state = structuredClone(DEFAULT_STATE); }
   source = "local";
+}
+
+// ---- one-time migration: fold legacy device-local maps (phone/email #1, thread #5,
+// keyDates #6, tier #9) UP onto the synced item, for data saved before the 2026-06-09
+// sync upgrade. Only fills a field the item LACKS — never overwrites a value the Sheet
+// already carries (remote stays authoritative). Returns true if anything changed, so the
+// caller can persist+push it. Idempotent: once an item carries the field, there's nothing
+// left in the map that isn't already on the item, so re-runs are no-ops. */
+function migrateDeviceLocalToSynced() {
+  if (!state || !state.items) return false;
+  const contacts = loadContacts(), threads = loadThreads(), keydates = loadKeyDates(), tiers = loadTiers();
+  let changed = false;
+  for (const [id, it] of Object.entries(state.items)) {
+    const c = contacts[id];
+    if (c) {
+      if (c.phone && !it.phone) { it.phone = String(c.phone).trim().slice(0, 300); changed = true; }
+      if (c.email && !it.email) { it.email = String(c.email).trim().slice(0, 300); changed = true; }
+    }
+    if (threads[id] && !it.thread) { it.thread = String(threads[id]).trim().slice(0, 300); changed = true; }
+    if (tiers[id] && !it.tier && TIERS.some(t => t.key === tiers[id])) { it.tier = tiers[id]; changed = true; }
+    const kd = keydates[id];
+    if (kd && (!it.keyDates || !Object.keys(it.keyDates).length)) {
+      const o = {};
+      if (isRealDate(String(kd.birthday))) o.birthday = kd.birthday;
+      if (isRealDate(String(kd.anniversary))) o.anniversary = kd.anniversary;
+      if (Object.keys(o).length) { it.keyDates = o; changed = true; }
+    }
+  }
+  return changed;
 }
 
 /* ---------- save-status indicator (INCOMING-6) ----------
@@ -1616,10 +1712,15 @@ async function loadProjectData({ canPrompt }) {
     healedCorruptionOnLoad = false;
     try {
       await loadFromSheet(sheetCfg);   // unions remote into the cache; sets source="sheet"
+      // One-time migration of legacy device-local fields (#1/#5/#6/#9) onto the synced
+      // item, for data saved before the 2026-06-09 sync upgrade. Runs AFTER loadFromSheet
+      // so remote stays authoritative (only fills fields the Sheet lacks); if it changed
+      // anything, save() pushes the now-synced fields up. (No-op once migrated.)
+      const migrated = migrateDeviceLocalToSynced();
       // If the Sheet held corrupt history (old [object Object] / scrambled-Date garbage),
       // mergeState dropped it — write the cleaned data straight back so the Sheet
       // self-heals just by opening it (no edit required, on any device).
-      if (healedCorruptionOnLoad) { console.log("Healed corrupt history on load — re-saving clean data."); save(); }
+      if (healedCorruptionOnLoad || migrated) { console.log("Re-saving on load (heal=" + healedCorruptionOnLoad + " migrate=" + migrated + ")."); save(); }
       // We just reached the Sheet for the READ, so we're online + reachable. If a
       // local scalar edit is still unsynced (POST failed earlier, OR was reloaded
       // before its debounce fired — both protected from revert in the union above),

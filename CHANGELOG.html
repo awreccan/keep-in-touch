@@ -71,9 +71,27 @@
 </div>
 <main>
   <div class="stale" id="stale">⚠️ This page was generated from <code>CHANGELOG.md</code>; the source has changed since. Re-run <code>gen-doc-pages.mjs</code> to refresh.</div>
-  <div class="src">Generated from <code>CHANGELOG.md</code> · source updated 2026-06-08 04:57 UTC · this HTML is a generated artifact — edit the <code>.md</code>, not this file.</div>
+  <div class="src">Generated from <code>CHANGELOG.md</code> · source updated 2026-06-09 22:19 UTC · this HTML is a generated artifact — edit the <code>.md</code>, not this file.</div>
   <h1>Changelog</h1>
 <p>All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under <code>releases/vN/</code>.</p>
+<h2>v1.42.0 — 2026-06-09</h2>
+<p><strong>Four more fields now sync across devices.</strong> Phone/email (#1), talking points (#5), key
+dates (#6) and the tier label (#9) used to live only in device-local <code>localStorage</code> (they
+predated their backend columns, kept out of the synced <code>state</code> to avoid the v1.28
+perpetual-dirty bug). The backend now persists them: <code>Code.gs</code> grew a 17-column schema
+(<code>phone</code>, <code>email</code>, <code>thread</code> appended; <code>tier</code>/<code>keyDates</code> columns already existed and are now
+actually read/written from the item). The renderer reads each field from the synced item
+first, falling back to the legacy device-local map; the four setters write onto the item
+(syncing) <strong>and</strong> keep the device-local mirror for offline/back-compat. A one-time
+<code>migrateDeviceLocalToSynced()</code> runs on load — folding any pre-upgrade device-local values up
+onto the item and pushing them to the Sheet — non-destructive (never overwrites a value the
+Sheet already carries) and idempotent. <code>mergeState</code> sanitizes the new fields on every ingest
+(string length-cap, tier must be a known key, keyDates must be real dates). The sync engine
+was the delicate part: a round-trip regression test proves the dirty-set is empty after a
+POST→read-back (no perpetual-dirty), and the full harness stays green at 111/111. Net effect:
+opening the app on a new device now shows all 13 features from the Sheet alone — no per-device
+setup — and existing data (e.g. <code>ppl-tier01</code>) upgrades its phone/email/talking points to sync
+automatically on next load.</p>
 <h2>v1.41.1 — 2026-06-07</h2>
 <p><strong>Backend manifest fix (email F9).</strong> Running <code>installDailyReminder</code> failed with
 &quot;Specified permissions are not sufficient to call ScriptApp.getProjectTriggers&quot; — the

@@ -25,10 +25,11 @@
 
 var SHARED_TOKEN = ""; // optional; if set, renderer must send ?token=...
 // Columns 0-10 are the original schema. Columns 11-13 (tier, keyDates, cadenceAnchor)
-// are APPENDED for roadmap features #9/#6/#7 — appended (not inserted) so a Sheet still
-// on the 11-column layout reads back fine (trailing cells are simply absent/blank).
+// were APPENDED for roadmap features #9/#6/#7; columns 14-16 (phone, email, thread)
+// are APPENDED for #1/#5 — appended (not inserted) so a Sheet still on an older column
+// layout reads back fine (trailing cells are simply absent/blank).
 // Per-meeting channel (#8) rides INSIDE the existing notes-JSON value, no new column.
-var HEADERS = ["id", "name", "cadenceDays", "lastMet", "history", "remindDays", "archived", "rank", "snoozedUntil", "suggestDismissed", "notes", "tier", "keyDates", "cadenceAnchor"];
+var HEADERS = ["id", "name", "cadenceDays", "lastMet", "history", "remindDays", "archived", "rank", "snoozedUntil", "suggestDismissed", "notes", "tier", "keyDates", "cadenceAnchor", "phone", "email", "thread"];
 
 function doGet(e) {
   return handle(e, "GET");
@@ -136,6 +137,12 @@ function readState(sheet, project) {
     if (keyDatesRaw) { try { var kd = JSON.parse(keyDatesRaw); if (kd && typeof kd === "object") item.keyDates = kd; } catch (e) {} }
     var anchor = cellToText(row[13]);                     // #7 explicit next-due anchor date
     if (anchor) item.cadenceAnchor = anchor;
+    var phone = cellToText(row[14]);                      // #1 reach-out phone (synced)
+    if (phone) item.phone = phone;
+    var email = cellToText(row[15]);                      // #1 reach-out email (synced)
+    if (email) item.email = email;
+    var thread = cellToText(row[16]);                     // #5 "pick up next time" talking point (synced)
+    if (thread) item.thread = thread;
     items[id] = item;
     var rank = row[7] === "" || row[7] === null ? null : parseInt(row[7], 10);
     if (rank !== null && !isNaN(rank)) ranked.push({ id: id, rank: rank });
@@ -199,7 +206,10 @@ function writeState(sheet, state) {
       notesCell,
       it.tier || "",                                                  // #9
       (it.keyDates && Object.keys(it.keyDates).length) ? JSON.stringify(it.keyDates) : "",  // #6
-      it.cadenceAnchor || ""                                          // #7
+      it.cadenceAnchor || "",                                         // #7
+      it.phone || "",                                                 // #1
+      it.email || "",                                                 // #1
+      it.thread || ""                                                 // #5
     ]);
   });
   sheet.clearContents();

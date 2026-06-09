@@ -2,6 +2,26 @@
 
 All notable changes to Keep In Touch. Versions are git tags in this repo; each is frozen under `releases/vN/`.
 
+## v1.42.0 — 2026-06-09
+
+**Four more fields now sync across devices.** Phone/email (#1), talking points (#5), key
+dates (#6) and the tier label (#9) used to live only in device-local `localStorage` (they
+predated their backend columns, kept out of the synced `state` to avoid the v1.28
+perpetual-dirty bug). The backend now persists them: `Code.gs` grew a 17-column schema
+(`phone`, `email`, `thread` appended; `tier`/`keyDates` columns already existed and are now
+actually read/written from the item). The renderer reads each field from the synced item
+first, falling back to the legacy device-local map; the four setters write onto the item
+(syncing) **and** keep the device-local mirror for offline/back-compat. A one-time
+`migrateDeviceLocalToSynced()` runs on load — folding any pre-upgrade device-local values up
+onto the item and pushing them to the Sheet — non-destructive (never overwrites a value the
+Sheet already carries) and idempotent. `mergeState` sanitizes the new fields on every ingest
+(string length-cap, tier must be a known key, keyDates must be real dates). The sync engine
+was the delicate part: a round-trip regression test proves the dirty-set is empty after a
+POST→read-back (no perpetual-dirty), and the full harness stays green at 111/111. Net effect:
+opening the app on a new device now shows all 13 features from the Sheet alone — no per-device
+setup — and existing data (e.g. `ppl-tier01`) upgrades its phone/email/talking points to sync
+automatically on next load.
+
 ## v1.41.1 — 2026-06-07
 
 **Backend manifest fix (email F9).** Running `installDailyReminder` failed with
